@@ -11,6 +11,13 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+
+# .env 파일 읽기
+from dotenv import load_dotenv
+
+load_dotenv()
+KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,7 +46,31 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'places',
     'rest_framework',
+    'drf_spectacular',
+    'drf_spectacular_sidecar',
 ]
+
+REST_FRAMEWORK = {
+  'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+  'TITLE': 'Taroute API',
+  'DESCRIPTION': '사용자 취향 기반 최적 장소 추천/경로 안내 API',
+  'VERSION': '1.0.0',
+  'SERVE_INCLUDE_SCHEMA': False, # 스키마 OAS3 Meta정보 비노출 처리
+  'COMPONENT_SPLIT_REQUEST': True, # 웹에서 파일 업로드 기능
+  'SWAGGER_UI_DIST': 'SIDECAR', # 정적파일 경로
+  'REDOC_DIST': 'SIDECAR',
+
+  'CONTACT': {
+    'name': 'Sein Oh',
+    'email': 'ohsein37@gmail.com',
+    'url': 'sein0327.shop',
+  }
+
+  
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -117,6 +148,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = []
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
