@@ -32,7 +32,7 @@ SECRET_KEY = 'django-insecure-lsit9-abu#q2+_(&s)&cyff$qcve$6uu2z6zb5vwhq&)qmvp(q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['sein0327.shop', 'www.sein0327.shop', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['sein0327.shop', 'www.sein0327.shop', 'localhost', '127.0.0.1', '15.164.26.158']
 
 
 # Application definition
