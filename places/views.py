@@ -8,17 +8,17 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from .models import *
 from .serializers import *
-from .services import kakao
+from .services import kakao, tmap
 
 import requests
 
 from django.shortcuts import get_object_or_404
 
-# 1.1 현위치 표시
-class PlaceViewSet(viewsets.ModelViewSet):
+class PlaceViewSet(viewsets.GenericViewSet):
   queryset = Place.objects.all()
   serializer_class = PlaceSerializer
 
+  # 1.1 현위치 표시
   @extend_schema(
     tags = ["현위치 표시"],
     parameters=[
@@ -26,7 +26,6 @@ class PlaceViewSet(viewsets.ModelViewSet):
       OpenApiParameter(name="y", description="위도", required=True, type=float),
     ],
     responses={200: DongResponseSerializer},
-    summary="현위치 기준 동 반환",
     description="클라이언트 위치(경도, 위도) 기준 카카오 동 반환",
   )
 
@@ -57,3 +56,113 @@ class PlaceViewSet(viewsets.ModelViewSet):
         return Response({"detail": "동 정보를 찾지 못했습니다."}, status=404)
 
     return Response({"dong": dong, "code": code}, status=200)
+
+class PlaceRouteViewSet(viewsets.GenericViewSet):
+  queryset = Place.objects.all()
+  serializer_class = PlaceSerializer
+
+  # 6.1 등록된 카드의 동선 안내
+  @extend_schema(
+    tags = ["등록된 카드의 동선 안내"],
+    request=PlaceRouteSerializer,
+    description="출발지, 경유지, 도착지 좌표로 경로 안내",
+ )
+
+  @action(detail=False, methods=["POST"])
+  def path(self, request):
+    # 1) 유효성 검사
+    route = PlaceRouteSerializer(data=request.data)
+    route.is_valid(raise_exception=True)
+    data = route.validated_data
+    transport = data["transport"]
+    print(f"[DEBUG] 실행된 API: {transport}")
+
+    # 2) 스웨거 페이로드, API 호출
+    try:
+        if transport == "car": # 카카오내비(자동차, 택시)
+            payload = {
+                "origin": (data["origin"]["x"], data["origin"]["y"]),                 
+                "destination": (data["destination"]["x"], data["destination"]["y"]),       
+                "waypoints": [
+                    (wp["x"], wp["y"])
+                    for wp in data.get("waypoints", [])
+                ],
+                "priority": data["priority"],             
+                "alternatives": data.get("alternatives", True),
+            }
+
+            data = kakao.car_route(**payload) # **으로 언팩하면 함수와 일치하게 호출됌,,!
+
+            # 3) 정보 가공(택시요금, 통행거리, 소요시간)
+            docs = data.get("routes", [])
+            routes_info = []
+
+            taxi_fare = None
+            distance = None
+            car_duration = None
+
+            for route in docs:
+                summary = route.get("summary", {})
+                fare = summary.get("fare", {}) or {}
+
+                taxi_fare = fare.get("taxi", 0) + fare.get("toll", 0) # 택시요금 + 톨비
+                distance = round(summary.get("distance", 0)/1000, 1) # 0.0km
+                car_duration = round(summary.get("duration", 0)/60) # 0분
+
+                routes_info.append({
+                    "taxi_fare": taxi_fare,
+                    "distance": f"{distance}km",
+                    "car_duration": f"{car_duration}분"
+                })
+            
+            if not docs:
+                return Response({"detail": "문서 정보를 찾지 못했습니다."}, status=404)
+
+            return Response({"routes": routes_info}, status=200)
+
+        elif transport == "transit":  # 티맵 (대중교통)
+
+            trans = tmap.traffic_route(
+                startX=data["origin"]["x"], 
+                startY=data["origin"]["y"], 
+                endX=data["destination"]["x"], 
+                endY=data["destination"]["y"],
+                count=1, lang=0, format="json"
+            )
+
+            plan = (trans.get("metaData") or {}).get("plan") or {}
+            itineraries = plan.get("itineraries") or []
+            if not itineraries:
+                return Response({"detail": "대중교통 경로 없음"}, status=404)
+
+            # itin = itineraries[0]
+            # legs = itin.get("legs") or []
+            routes_info = []
+
+            for itin in itineraries:
+                legs = itin.get("legs") or []
+
+                routes_info.append({
+                    # 요약 (대중교통 거리, 시간, 환승횟수, 요금)
+                    "trans_duration": round(itin.get("totalTime", 0) / 60),
+                    "trans_distance": round(itin.get("totalDistance", 0) / 1000, 1),
+                    "transfers": itin.get("transferCount", 0),
+                    "trans_fare": itin.get("fare", {}).get("regular", {}).get("totalFare", 0),
+
+                    # 도보 (시간, 거리, 걸음 수 0.7m)
+                    "walk_time": round(itin.get("totalTime", 0) / 60),
+                    "walk_distance": round(itin.get("totalDistance", 0) / 1000, 1),
+                    "walk_steps": int(round(itin.get("totalWalkDistance", 0) / 0.7)),  # 보폭 0.7m 가정
+
+                    # 지하철/버스 (노선, 번호)
+                    "subway_lines": [l.get("route") for l in legs if l.get("mode") == "SUBWAY"],
+                    "bus_numbers": [l.get("route") for l in legs if l.get("mode") == "BUS"],
+                })
+
+            return Response({"transit_routes":routes_info}, status=200)
+        
+        else:
+            return Response({"detail": "존재하지 않는 transport 값입니다."}, status=400)
+    
+    except requests.RequestException as e:
+        return Response({"detail": f"외부 API 호출 실패: {e}"}, status=502)

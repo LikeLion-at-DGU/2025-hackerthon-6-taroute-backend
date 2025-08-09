@@ -10,6 +10,10 @@ app_name = "places"
 default_router = routers.SimpleRouter(trailing_slash=False)
 default_router.register("places", PlaceViewSet, basename="places")
 
+route_router = routers.SimpleRouter(trailing_slash=False)
+route_router.register("routes", PlaceRouteViewSet, basename="routes")
+
 urlpatterns = [
     path("", include(default_router.urls)),
+    path("", include(route_router.urls)),
 ] + static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)
