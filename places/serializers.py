@@ -10,6 +10,14 @@ class DongResponseSerializer(serializers.Serializer):
     dong = serializers.CharField(help_text="행정동(법정동) 명칭")
     code = serializers.CharField(help_text="행정코드", required=False)
 
+# 1.2 구글 장소 검색
+class PlaceSearchSerializer(serializers.Serializer):
+    q = serializers.CharField(source="text_query")  # API에 넘길 키 이름 매핑
+    x = serializers.FloatField()   # 경도
+    y = serializers.FloatField()   # 위도
+    radius = serializers.IntegerField(required=False, default=2000) # 미터단위, 기본 2km
+    priceLevel = serializers.CharField(required=False, allow_null=True)
+
 # 6.1 등록된 카드의 동선 안내
 class PointSerializer(serializers.Serializer):
     x = serializers.FloatField(help_text='경도')
@@ -38,4 +46,3 @@ class ReviewSerializer(serializers.ModelSerializer):
     model = Review
     fields = '__all__'
     read_only_fields = ["ai_review"]
-

@@ -1,6 +1,4 @@
 from django.shortcuts import render
-
-# Create your views here.
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, action
 from rest_framework import viewsets, mixins
@@ -8,19 +6,18 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from .models import *
 from .serializers import *
-from .services import kakao, tmap
+from .services import kakao, tmap, google, openai
 
 import requests
+import json
 
 from django.shortcuts import get_object_or_404
 
-class PlaceViewSet(viewsets.GenericViewSet):
-  queryset = Place.objects.all()
-  serializer_class = PlaceSerializer
+class PlaceViewSet(viewsets.ViewSet):
 
-  # 1.1 현위치 표시
+  # 1.1 현위치 표시 (프론트에서 처리가능할 수도 있음, 확인 후 삭제 예정)
   @extend_schema(
-    tags = ["현위치 표시"],
+    tags = ["1.1 현위치 표시"],
     parameters=[
       OpenApiParameter(name="x", description="경도", required=True, type=float),
       OpenApiParameter(name="y", description="위도", required=True, type=float),
@@ -31,31 +28,87 @@ class PlaceViewSet(viewsets.GenericViewSet):
 
   @action(detail=False, methods=["GET"])
   def locate(self, request):
-    lng = request.query_params.get("x")
-    lat = request.query_params.get("y")
+    x = request.query_params.get("x")
+    y = request.query_params.get("y")
 
-    if not (lat and lng):
-        return Response({"detail": "경도, 위도가 필요합니다."}, status=400)
     try:
-        data = kakao.locate_dong(x=float(lng), y=float(lat))
+        data = kakao.locate_dong(x=float(x), y=float(y))
     except ValueError:
         return Response({"detail": "경도/위도는 숫자여야 합니다."}, status=400)
     except requests.RequestException as e:
         return Response({"detail": f"카카오 API 호출 실패: {e}"}, status=502)
 
-    # Kakao 응답에서 동 이름 뽑기 (region_3depth_name가 보통 ‘○○동’)
-    dong = None
-    code = None
+    # Kakao 응답에서 동 이름 뽑기 (region_3depth_name => ‘○○동’)
     docs = data.get("documents", [])
     if docs:
         primary = docs[0]
         dong = primary.get("region_3depth_name")
-        code = primary.get("code")
+        code = primary.get("code") #코드는 필요없을 수 있음 확인 후 삭제 예정
 
     if not dong:
         return Response({"detail": "동 정보를 찾지 못했습니다."}, status=404)
-
     return Response({"dong": dong, "code": code}, status=200)
+
+  # 1.2 구글 장소 검색 → place 정보 반환
+  @extend_schema(
+    tags=["1.2 구글 장소 검색"],
+    parameters=[
+        OpenApiParameter(name="q", description="검색어(textQuery)", required=True, type=str),
+        OpenApiParameter(name="x", description="경도", required=True, type=float),
+        OpenApiParameter(name="y", description="위도", required=True, type=float),
+        OpenApiParameter(name="radius", description="반경거리", required=False, type=float), #거리
+        OpenApiParameter(name="priceLevel", description="가격", required=False, type=str), #가격 "PRICE_LEVEL_INEXPENSIVE", "PRICE_LEVEL_MODERATE"
+        #후기, #인기순 정렬 코드 작성 필요
+    ],
+    description="Google Places API textSearch를 이용해 place 정보 반환",
+  )
+  @action(detail=False, methods=["GET"])
+  def google_place(self, request):
+    query = PlaceSearchSerializer(data=request.query_params)
+    query.is_valid(raise_exception=True)
+    params = query.validated_data
+
+    try:
+        places = google.search_place(**params)
+    except requests.HTTPError as e:
+        return Response({"detail": f"Google Places API 호출 실패: {e.response.status_code} {e.response.text}"}, status=502)
+    except requests.RequestException as e:
+        return Response({"detail": f"Google Places API 호출 실패: {e}"}, status=502)
+
+    if not places:
+        return Response({"detail": "장소를 찾지 못했습니다."}, status=404)
+
+    return Response({"google_place" : places}, status=200)
+
+  # 1.2 장소 카테고리별 추천
+  # 1) 구글 장소의 위도경도를 이용하여 카카오맵에 검색하여 카테고리 확인 2) 그 외 카테고리별로 호출!
+  @extend_schema(
+    tags = ["1.2 장소 카테고리별 추천"],
+    parameters=[
+      OpenApiParameter(name="x", description="경도", required=True, type=float),
+      OpenApiParameter(name="y", description="위도", required=True, type=float),
+      OpenApiParameter(name="category_group_code", description="카테고리 코드", required=True, type=str),
+      OpenApiParameter(name="radius", description="반경거리", required=True, type=int),
+    ],
+    description="구글 장소의 위도경도를 이용하여 카테고리별 장소 반환",
+  )
+
+  #CT1 문화시설, AT4 관광명소, FD6 음식점, CE7 카페
+  @action(detail=False, methods=["GET"])
+  def recommend(self, request):
+    x = request.query_params.get("x")
+    y = request.query_params.get("y")
+    category = request.query_params.get("category_group_code")
+    radius = request.query_params.get("radius")
+
+    if not (x and y):
+        return Response({"detail": "경도, 위도가 필요합니다."}, status=400)
+    try:
+        data = kakao.recommend_place(x=float(x), y=float(y), category_group_code=category, radius=radius)
+    except requests.RequestException as e:
+        return Response({"detail": f"카카오 API 호출 실패: {e}"}, status=502)
+
+    return Response({"data": data}, status=200) #=> 가공 필요, 구글과 어떻게 연계할지,,!
 
 class PlaceRouteViewSet(viewsets.GenericViewSet):
   queryset = Place.objects.all()
@@ -135,8 +188,6 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
             if not itineraries:
                 return Response({"detail": "대중교통 경로 없음"}, status=404)
 
-            # itin = itineraries[0]
-            # legs = itin.get("legs") or []
             routes_info = []
 
             for itin in itineraries:
