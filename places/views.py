@@ -81,13 +81,13 @@ class PlaceViewSet(viewsets.ViewSet):
     return Response({"google_place" : places}, status=200)
 
   # 1.2 장소 카테고리별 추천
-  # 1) 구글 장소의 위도경도를 이용하여 카카오맵에 검색하여 카테고리 확인 2) 그 외 카테고리별로 호출!
+  # 1) 검색한 구글 장소의 위도경도로 카테고리별 10개씩 추출
   @extend_schema(
     tags = ["1.2 장소 카테고리별 추천"],
     parameters=[
       OpenApiParameter(name="x", description="경도", required=True, type=float),
       OpenApiParameter(name="y", description="위도", required=True, type=float),
-      OpenApiParameter(name="category_group_code", description="카테고리 코드", required=True, type=str),
+      OpenApiParameter(name="category_group_code", description="카테고리 코드", required=False, type=str),
       OpenApiParameter(name="radius", description="반경거리", required=True, type=int),
     ],
     description="구글 장소의 위도경도를 이용하여 카테고리별 장소 반환",
@@ -100,15 +100,20 @@ class PlaceViewSet(viewsets.ViewSet):
     y = request.query_params.get("y")
     category = request.query_params.get("category_group_code")
     radius = request.query_params.get("radius")
+    limit = int(request.query_params.get("limit") or 10)
 
     if not (x and y):
         return Response({"detail": "경도, 위도가 필요합니다."}, status=400)
+    if category is None:
+        category = request.query_params.get("category")
+
     try:
-        data = kakao.recommend_place(x=float(x), y=float(y), category_group_code=category, radius=radius)
+        data = kakao.recommend_place(x=float(x), y=float(y), category_group_code=category, radius=radius, limit=limit)
     except requests.RequestException as e:
         return Response({"detail": f"카카오 API 호출 실패: {e}"}, status=502)
 
-    return Response({"data": data}, status=200) #=> 가공 필요, 구글과 어떻게 연계할지,,!
+    # 2) place_name, x, y 반환 => 구글 장소 세부데이터 요청 필요
+    return Response({"data": data}, status=200) 
 
 class PlaceRouteViewSet(viewsets.GenericViewSet):
   queryset = Place.objects.all()

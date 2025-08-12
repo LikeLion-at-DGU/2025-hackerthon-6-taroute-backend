@@ -33,7 +33,7 @@ def search_place(text_query, x, y, radius, priceLevel=None):
     places = data.get("places", [])
 
     google_place = []
-    for p in places:
+    for p in places: #장소 리스트 상한 필요시 [:5]
 
         photos = p.get("photos", [])
         place_photos = {
