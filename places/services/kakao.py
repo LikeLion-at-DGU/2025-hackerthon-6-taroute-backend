@@ -7,12 +7,12 @@ ROUTE = "https://apis-navi.kakaomobility.com/v1/waypoints/directions"
 def _headers():
     return {"Authorization": f"KakaoAK {settings.KAKAO_REST_API_KEY}"}
 
-# 1.1 현위치 표시
+# 1.1 현위치 표시 / region_3depth_name => ‘○○동’
 def locate_dong(x, y): 
     params = {"x":x, "y":y}
     r = requests.get(f"{LOCAL}/geo/coord2regioncode.json", headers=_headers(), params=params, timeout=5)
     r.raise_for_status() #200대가 아니면 에러 발생
-    return r.json() 
+    return r.json()
 
 # 1.2 장소 카테고리별 추천
 CATEGORY = ["CT1", "AT4", "FD6", "CE7"] # 문화시설, 관광명소, 음식점, 카페
