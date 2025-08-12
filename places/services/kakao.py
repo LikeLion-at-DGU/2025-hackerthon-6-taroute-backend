@@ -37,8 +37,9 @@ def _search_category(category, x, y, radius, size=10):
 def recommend_place(x, y, radius, category_group_code=None, limit=10):
     if not category_group_code or category_group_code == "all":
         codes = CATEGORY
+        limit = 3 #검색창 하단 카테고리 추천 수 제한
     else:
-        codes = [category_group_code]
+        codes = [category_group_code] #카테고리 페이지에서는 10개씩 default
 
     results = {
         code: _search_category(code, x, y, radius, size=limit) 
