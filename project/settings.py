@@ -20,6 +20,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY")
 TMAP_API_KEY = os.getenv("TMAP_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,6 +66,10 @@ SPECTACULAR_SETTINGS = {
   'COMPONENT_SPLIT_REQUEST': True, # 웹에서 파일 업로드 기능
   'SWAGGER_UI_DIST': 'SIDECAR', # 정적파일 경로
   'REDOC_DIST': 'SIDECAR',
+  "SWAGGER_UI_SETTINGS": {
+        "operationsSorter": "alpha",  # API operation을 이름순 정렬
+        "tagsSorter": "alpha",        # 태그를 이름순 정렬
+    },
 
   'CONTACT': {
     'name': 'Sein Oh',
