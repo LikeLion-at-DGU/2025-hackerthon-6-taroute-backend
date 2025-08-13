@@ -2,7 +2,7 @@ import requests
 from django.conf import settings
 
 LOCAL = "https://dapi.kakao.com/v2/local"
-ROUTE = "https://apis-navi.kakaomobility.com/v1/waypoints/directions"
+ROUTE = "https://apis-navi.kakaomobility.com/v1/directions"
 
 def _headers():
     return {"Authorization": f"KakaoAK {settings.KAKAO_REST_API_KEY}"}
@@ -48,30 +48,28 @@ def recommend_place(x, y, radius, category_group_code=None, limit=10):
     return results[codes[0]] if len(codes) == 1 else results
 
 # 6.1 등록된 카드의 동선 안내(택시, 자동차)
-def car_route(origin, destination, waypoints=None, priority="RECOMMEND", alternatives=True):
+def car_route(origin:str, destination:str):
     params = {
-         "origin": {
-            "x": origin[0],
-            "y": origin[1]
-        },
-        "destination": {
-            "x": destination[0],
-            "y": destination[1]
-        },
-        "priority": priority,
-        "alternatives": alternatives,
+        "origin": origin,
+        "destination": destination,
     }
-
-    # 경유지
-    if waypoints:
-        params["waypoints"] = [
-            {
-                "x": wp[0],
-                "y": wp[1]
-            }
-            for wp in waypoints
-        ]
-
-    r = requests.post(f"{ROUTE}", headers=_headers(), json=params, timeout=5)
+    r = requests.get(f"{ROUTE}", headers=_headers(), params=params, timeout=5)
     r.raise_for_status()
-    return r.json()
+
+    # 3) 자동차 정보 가공(소요시간(분), 통행거리(km), 택시요금(원))
+    data = r.json().get("routes", [])
+    car_routes = []
+    summary = data[0].get("summary", {})
+    fare = summary.get("fare", {}) or {}
+
+    taxi_fare = fare.get("taxi", 0) + fare.get("toll", 0) # 택시요금 + 톨비
+    distance = round(summary.get("distance", 0)/1000, 1) # 0.0km
+    car_duration = round(summary.get("duration", 0)/60) # 0분
+
+    car_routes.append({
+        "car_duration": f"{car_duration}분",
+        "distance": f"{distance}km",
+        "taxi_fare": f"{taxi_fare:,}원",
+    })
+
+    return car_routes

@@ -93,105 +93,78 @@ class PlaceViewSet(viewsets.ViewSet):
 
 class PlaceRouteViewSet(viewsets.GenericViewSet):
   queryset = Place.objects.all()
-  serializer_class = PlaceSerializer
+  serializer_class = PlaceRouteSerializer
 
   # 6.1 등록된 카드의 동선 안내
   @extend_schema(
-    tags = ["등록된 카드의 동선 안내"],
-    request=PlaceRouteSerializer,
-    description="출발지, 경유지, 도착지 좌표로 경로 안내",
+    tags = ["6.1 등록된 카드의 동선 안내"],
+    parameters=[PlaceRouteSerializer],
+    description="출발지, 도착지 좌표로 경로 안내(GET=자동차, POST=대중교통, 도보)",
  )
 
-  @action(detail=False, methods=["POST"])
+  @action(detail=False, methods=["GET", "POST"])
   def path(self, request):
-    # 1) 유효성 검사
-    route = PlaceRouteSerializer(data=request.data)
+
+    # 1) 함수 메소드 분기
+    if request.method == "POST":
+        request_data = request.query_params
+    else:
+        request_data = request.data
+
+    # 2) 유효성 검사
+    route = PlaceRouteSerializer(data=request_data)
     route.is_valid(raise_exception=True)
     data = route.validated_data
+
+    ox, oy = data["origin_x"], data["origin_y"]
+    dx, dy = data["destination_x"], data["destination_y"]
+
     transport = data["transport"]
     print(f"[DEBUG] 실행된 API: {transport}")
 
-    # 2) 스웨거 페이로드, API 호출
+    # 3) API 호출
     try:
-        if transport == "car": # 카카오내비(자동차, 택시)
-            payload = {
-                "origin": (data["origin"]["x"], data["origin"]["y"]),                 
-                "destination": (data["destination"]["x"], data["destination"]["y"]),       
-                "waypoints": [
-                    (wp["x"], wp["y"])
-                    for wp in data.get("waypoints", [])
-                ],
-                "priority": data["priority"],             
-                "alternatives": data.get("alternatives", True),
+        if transport == "car": # 카카오내비(자동차)
+            params = {
+                "origin": f"{ox},{oy}",
+                "destination": f"{dx},{dy}",
             }
-
-            data = kakao.car_route(**payload) # **으로 언팩하면 함수와 일치하게 호출됌,,!
-
-            # 3) 정보 가공(택시요금, 통행거리, 소요시간)
-            docs = data.get("routes", [])
-            routes_info = []
-
-            taxi_fare = None
-            distance = None
-            car_duration = None
-
-            for route in docs:
-                summary = route.get("summary", {})
-                fare = summary.get("fare", {}) or {}
-
-                taxi_fare = fare.get("taxi", 0) + fare.get("toll", 0) # 택시요금 + 톨비
-                distance = round(summary.get("distance", 0)/1000, 1) # 0.0km
-                car_duration = round(summary.get("duration", 0)/60) # 0분
-
-                routes_info.append({
-                    "taxi_fare": taxi_fare,
-                    "distance": f"{distance}km",
-                    "car_duration": f"{car_duration}분"
-                })
-            
-            if not docs:
+            car_routes = kakao.car_route(**params)
+            if not car_routes:
                 return Response({"detail": "문서 정보를 찾지 못했습니다."}, status=404)
-
-            return Response({"routes": routes_info}, status=200)
+            return Response({"car_routes": car_routes}, status=200)
 
         elif transport == "transit":  # 티맵 (대중교통)
-
-            trans = tmap.traffic_route(
-                startX=data["origin"]["x"], 
-                startY=data["origin"]["y"], 
-                endX=data["destination"]["x"], 
-                endY=data["destination"]["y"],
+            params_l = dict(
+                startX=data["origin_x"], 
+                startY=data["origin_y"],
+                endX=data["destination_x"],
+                endY=data["destination_y"],
                 count=1, lang=0, format="json"
             )
 
-            plan = (trans.get("metaData") or {}).get("plan") or {}
-            itineraries = plan.get("itineraries") or []
-            if not itineraries:
+            traffic_routes = tmap.traffic_route(**params_l)
+            if not traffic_routes:
                 return Response({"detail": "대중교통 경로 없음"}, status=404)
 
-            routes_info = []
+            return Response({
+                "transit_summary": traffic_routes.get("transit_summary"),
+                "segments": traffic_routes.get("segments"),
+            }, status=200)
+        
+        elif transport == "walk": # 티맵(도보)
 
-            for itin in itineraries:
-                legs = itin.get("legs") or []
+            payload_W = dict (
+                startX = data["origin_x"],
+                startY = data["origin_y"],
+                endX = data["destination_x"],
+                endY = data["destination_y"],
+                startName = data["startName"],
+                endName = data["endName"]
+            )
 
-                routes_info.append({
-                    # 요약 (대중교통 거리, 시간, 환승횟수, 요금)
-                    "trans_duration": round(itin.get("totalTime", 0) / 60),
-                    "trans_distance": round(itin.get("totalDistance", 0) / 1000, 1),
-                    "transfers": itin.get("transferCount", 0),
-                    "trans_fare": itin.get("fare", {}).get("regular", {}).get("totalFare", 0),
-
-                    # 도보 (시간, 거리, 걸음 수 0.7m)
-                    "walk_time": round(itin.get("totalTime", 0) / 60),
-                    "walk_distance": round(itin.get("totalDistance", 0) / 1000, 1),
-                    "walk_steps": int(round(itin.get("totalWalkDistance", 0) / 0.7)),  # 보폭 0.7m 가정
-
-                    # 지하철/버스 (노선, 번호)
-                    "subway_lines": [l.get("route") for l in legs if l.get("mode") == "SUBWAY"],
-                    "bus_numbers": [l.get("route") for l in legs if l.get("mode") == "BUS"],
-                })
-
-            return Response({"transit_routes":routes_info}, status=200)
+            walk_data = tmap.walk_route(**payload_W)
+            return Response({"data":walk_data}, status=200)
         
         else:
             return Response({"detail": "존재하지 않는 transport 값입니다."}, status=400)
