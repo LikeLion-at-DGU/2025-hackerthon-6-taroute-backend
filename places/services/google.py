@@ -9,7 +9,7 @@ def _headers():
         "X-Goog-Api-Key": settings.GOOGLE_API_KEY,
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "X-Goog-FieldMask": "places.displayName,places.id,places.nationalPhoneNumber,places.location,places.regularOpeningHours,places.rating,places.photos,places.priceRange,places.formattedAddress,places.types,places.reviews,places.priceLevel",
+        "X-Goog-FieldMask": "places.displayName,places.id,places.userRatingCount,places.nationalPhoneNumber,places.location,places.regularOpeningHours,places.rating,places.photos,places.priceRange,places.formattedAddress,places.types,places.reviews,places.priceLevel",
     }
 
 # 1.2 구글 검색기준을 이용해 장소를 검색하여 리스트를 반환
@@ -33,14 +33,7 @@ def search_place(text_query, x, y, radius, priceLevel=None):
     places = data.get("places", [])
 
     google_place = []
-    for p in places: #장소 리스트 상한 필요시 [:5]
-
-        photos = p.get("photos", [])
-        place_photos = {
-            build_photo_url(p["name"], max_width_px=800)
-            for p in photos
-            if p.get("name")
-        }
+    for p in places[:10]: #장소 리스트 상한 필요시 [:5]
 
         reviews = p.get("reviews", [])
         reviews_text = [
@@ -49,24 +42,23 @@ def search_place(text_query, x, y, radius, priceLevel=None):
             if r.get("text", {}).get("text")
         ]
 
+        review_count = p.get("userRatingCount", 0)
+
         google_place.append({
+            # 장소카드에서는 place_name, address, location
             "place_id" : p.get("id"),
             "place_name" : p.get("displayName", {}).get("text"),
             "address" : p.get("formattedAddress"),
             "location" : p.get("location"),
-            "types" : p.get("types"),
-            "phone_number" : p.get("nationalPhoneNumber"),
-            "rating" : p.get("rating"),
-            "open_now" : p.get("regularOpeningHours", {}).get("openNow"),
-            "running_time" : p.get("regularOpeningHours", {}).get("weekdayDescriptions"),
-            "price_range_start" : p.get("priceRange", {}).get("startPrice", {}).get("units"),
-            "price_range_end" : p.get("priceRange", {}).get("endPrice", {}).get("units"),
-            "place_photos" : place_photos,
-            "reviews_text" : reviews_text
+            # "types" : p.get("types"),
+            # "phone_number" : p.get("nationalPhoneNumber"),
+            # "rating" : p.get("rating"),
+            # "price_range_start" : p.get("priceRange", {}).get("startPrice", {}).get("units"),
+            # "price_range_end" : p.get("priceRange", {}).get("endPrice", {}).get("units"),
+            "review_count" : review_count
         })
     
     return google_place
-
 
 # 사진 URL 생성
 def build_photo_url(photo_name: str, max_width_px: int = 800) -> str:
@@ -74,3 +66,48 @@ def build_photo_url(photo_name: str, max_width_px: int = 800) -> str:
         f"https://places.googleapis.com/v1/{photo_name}/media"
         f"?key={settings.GOOGLE_API_KEY}&maxWidthPx={max_width_px}"
     )
+
+# 1.2 장소를 저장하기 위해, 프론트로부터 place_id를 받고 세부 데이터 응답
+def search_detail(place_id):
+    params = {
+        "languageCode": "ko",
+        "regionCode": "KR",
+        "fields": "id,displayName,formattedAddress,location,regularOpeningHours,photos",
+    }
+    r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=5)
+    r.raise_for_status()
+    p = r.json()
+
+    photos = p.get("photos", [])
+    place_photos = {
+        build_photo_url(p["name"], max_width_px=800)
+        for p in photos
+        if p.get("name")
+    }
+
+    search_details = {
+        "place_name" : p.get("displayName", {}).get("text"),
+        "address" : p.get("formattedAddress"),
+        "location" : p.get("location"),
+        "open_now" : p.get("regularOpeningHours", {}).get("openNow"),
+        "running_time" : p.get("regularOpeningHours", {}).get("weekdayDescriptions"),
+        "place_photos" : place_photos
+    }
+
+    return search_details
+
+# 4. 타로 페이지
+def search_slot(x, y, radius):
+    body = {
+        "languageCode": "ko",
+        "regionCode": "KR",
+        "locationRestriction": {
+            "circle": {
+                "center": {"latitude": y, "longitude": x},
+                "radius": radius,
+            }
+        },
+    }
+    r = requests.post(f"{BASE}:searchNearby", headers=_headers(), json=body, timeout=5)
+    r.raise_for_status()  # 200대가 아니면 에러 발생
+    return r.json()

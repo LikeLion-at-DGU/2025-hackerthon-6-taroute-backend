@@ -170,3 +170,5 @@ CORS_ALLOWED_ORIGINS = [
 
   "https://sein0327.shop",
 ]
+
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True #브라우저 닫으면 세션 만료

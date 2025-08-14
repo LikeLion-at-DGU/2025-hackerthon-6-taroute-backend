@@ -13,7 +13,11 @@ default_router.register("places", PlaceViewSet, basename="places")
 route_router = routers.SimpleRouter(trailing_slash=False)
 route_router.register("routes", PlaceRouteViewSet, basename="routes")
 
+chat_router = routers.SimpleRouter(trailing_slash=False)
+chat_router.register("chats", ChatViewSet, basename="chats")
+
 urlpatterns = [
     path("", include(default_router.urls)),
-    path("", include(route_router.urls)),
+    path("", include(route_router.urls)),   
+    path("", include(chat_router.urls)),
 ] + static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)
