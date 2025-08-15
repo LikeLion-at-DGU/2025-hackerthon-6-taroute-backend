@@ -1,3 +1,4 @@
+import json
 import requests
 from django.conf import settings
 from ..models import SubwayLines
@@ -18,19 +19,8 @@ def locate_dong(query):
     data = r.json()
     address_list = []
 
-    if data["documents"]: 
-        #카카오API의 위도경도 목록
-        for document in data["documents"]:
-            address_list.append({
-                "address_name" : document.get("address_name"),
-                "x" : document.get("x"),
-                "y" : document.get("y")
-            })
-    else: 
-        address_list = []
-    
     #DB에서 지하철역정보 검색하여 위도경도 반환
-    q = (query or "").strip()
+    q = query.strip()
     if q.endswith("역"): #00역인 경우 '역' 제거
         q = q[:-1].strip()
 
@@ -44,7 +34,16 @@ def locate_dong(query):
             "x": s.longitude,
             "y": s.latitude,
         })
-        
+
+    if data["documents"]: 
+        #카카오API의 위도경도 목록
+        for document in data["documents"]:
+            address_list.append({
+                "address_name" : document.get("address_name"),
+                "x" : document.get("x"),
+                "y" : document.get("y")
+            })
+    
     return address_list
 
 # 1.2 장소 카테고리별 추천

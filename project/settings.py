@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'drf_spectacular',
     'drf_spectacular_sidecar',
+    'corsheaders'
 ]
 
 REST_FRAMEWORK = {
@@ -83,6 +84,7 @@ SPECTACULAR_SETTINGS = {
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    "corsheaders.middleware.CorsMiddleware", #CORS 추가
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -164,12 +166,21 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOWED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = [ #API 호출할 수 있는 출처 목록
   "http://127.0.0.1:8000",
   "https://127.0.0.1:8000",
   "http://localhost:5173",
-
   "https://sein0327.shop",
+  "https://taroute.netlify.app"
 ]
 
+CSRF_TRUSTED_ORIGINS = [ #CSRF 토큰 검증 통과
+  "http://127.0.0.1:8000",
+  "https://127.0.0.1:8000",
+  "http://localhost:5173",
+  "https://sein0327.shop",
+  "https://taroute.netlify.app"
+]
+CSRF_COOKIE_SECURE = False #운영서버에서 True로 킬 것, http 보안!
+SESSION_COOKIE_SECURE = False #위와 동일
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True #브라우저 닫으면 세션 만료

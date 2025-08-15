@@ -1,3 +1,4 @@
+import re
 from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, action
@@ -142,21 +143,20 @@ class PlaceViewSet(viewsets.ViewSet):
     return Response({"place_name" : keyword.place_name} for keyword in popular_keywords)
 
 
-#############################################################################
+################################################################################
 class ChatViewSet(viewsets.ViewSet):
   #4. 타루 챗봇 대화
   # 호출 시 타로마스터 ai의 질문 목록을 저장합니다.
   @extend_schema(
     tags = ["4.1.1 타루 챗봇 질문 리스트 저장"],
-    request=ChatSerializer,
+    # request=ChatSerializer,
     description="타로마스터 ai가 4지선다 질문 5개 목록을 생성합니다.",
   )
   @action(detail=False, methods=["POST"])
   def slot_question(self, request):
-    input = "지금 질문 리스트 5개를 뽑아줘"
 
     try:
-        data = openai.create_question(input_text=input, lang="ko")
+        data = openai.create_question()
     except requests.RequestException as e:
         return Response({"detail": f"openAI API 호출 실패: {e}"}, status=502)
   
@@ -211,7 +211,11 @@ class ChatViewSet(viewsets.ViewSet):
   
   @extend_schema(
     tags = ["4.2 타로 카드 20장 추천"],
-    parameters = [PlaceMixin],
+    # parameters = [PlaceMixin],
+    parameters = [
+        OpenApiParameter(name="x", required=True, type=float),
+        OpenApiParameter(name="y", required=True, type=float),
+    ],
     description="추출한 키워드를 기반으로 카드 20장을 추천합니다.",
   )
   @action(detail=False, methods=["GET"])
@@ -220,15 +224,30 @@ class ChatViewSet(viewsets.ViewSet):
     query.is_valid(raise_exception=True)
     x = query.validated_data["x"]
     y = query.validated_data["y"]
-    radius = query.validated_data["radius"]
 
     try:
         # 구글 api에 접근해서 리뷰 목록 20개 뽑기
+        s = request.session.get('taru_chat', {}) or {}
+        chats_radius   = s.get("radius", 0)
+
+        # chats_radius에서 숫자를 추출하여 거리 계산
+        if isinstance(chats_radius, str):
+            numbers = re.findall(r'\d+', chats_radius)
+            if numbers:
+                value = int(numbers[0])
+                if "시간" in chats_radius:
+                    radius = value * 12000 # 1시간=12km=12000m
+                elif "분" in chats_radius:
+                    radius = value / 60 * 12000
+            else:
+                radius = 2000  # 숫자를 찾지 못한 경우
+        else:
+            radius = 2000  # 문자열이 아닌 경우
+        print(f"radius {radius}")
         places = google.search_slot(x=x, y=y, radius=radius)
 
         # ------------장소의 리뷰에 하나씩 접근해서 세션에 저장된 값들이 포함되어있다면 장소 id, 이름 반환-----------
-        s = request.session.get('taru_chat', {}) or {}
-        chats_radius   = s.get("radius")   or ""
+        
         chats_budget   = s.get("budget")   or ""
         chats_vibe     = s.get("vibe")     or ""
         chats_category = s.get("category") or ""
@@ -243,12 +262,15 @@ class ChatViewSet(viewsets.ViewSet):
                     keywords.append((src, w)) # (원문, 단어)
 
         select = []  # 조건 만족하는 장소
+        p_id = set() # id 중복 체크 위한 set
         matches = google.keyword_match(places, keywords) # 키워드 매칭
+        add_count = 0 # 장소 저장 카운트
 
-        for p in places:
-            if matches:
-                print(f"[MATCH] {p.get('place_name')} ({len(matches)} hits)")
-                for hit in matches[:5]:  # 너무 길면 상위 5개만
+        for p in matches:
+            place_id = p.get('place_id')
+            if place_id and place_id not in p_id:
+                print(f"[MATCH] {p.get('place_name')} ({len(p.get('matches', []))} hits)")
+                for hit in p.get('matches', [])[:3]:
                     print(
                         f" - 리뷰#{hit['review_index']} "
                         f"키워드='{hit['keyword']}' (원문='{hit['source_text']}') "
@@ -257,9 +279,34 @@ class ChatViewSet(viewsets.ViewSet):
                 
                 select.append({
                     "select_num" : len(select) + 1,
-                    "place_id" : p.get('place_id'),
+                    "place_id" : place_id,
                     "place_name" : p.get('place_name')
                 })
+                p_id.add(place_id)
+                add_count += 1
+
+        print(f"이번 시도에서 {add_count}개 장소 추가됨, 현재 총 {len(select)}개")
+
+        while len(select) < 20 :
+            places_two = google.search_slot(x=x, y=y, radius=radius*1.5)
+            for t in places_two:
+                t_id = t.get('place_id')
+                if t_id and t_id not in p_id:
+                    select.append({
+                        "select_num" : len(select) + 1,
+                        "place_id" : t_id,
+                        "place_name" : t.get('place_name')
+                    })
+                    p_id.add(t_id)
+                    add_count += 1
+
+                    if len(select) >= 20: break
+            
+            print(f"이번 시도에서 {add_count}개 장소 추가됨, 현재 총 {len(select)}개")
+        
+            if add_count == 0:  # 더 이상 새로운 장소를 찾지 못하면 종료
+                print("더 이상 새로운 장소를 찾을 수 없습니다.")
+                break
     
     except requests.HTTPError as e:
         return Response({"detail": f"Google Places API 호출 실패: {e.response.status_code} {e.response.text}"}, status=502)
