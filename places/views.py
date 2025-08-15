@@ -11,7 +11,6 @@ from .services import kakao, tmap, google, openai, combined_api
 
 import requests
 import json
-import uuid
 
 from django.shortcuts import get_object_or_404
 class PlaceViewSet(viewsets.ViewSet):
@@ -145,7 +144,6 @@ class PlaceViewSet(viewsets.ViewSet):
 
 #############################################################################
 class ChatViewSet(viewsets.ViewSet):
-
   #4. 타루 챗봇 대화
   # 호출 시 타로마스터 ai의 질문 목록을 저장합니다.
   @extend_schema(
@@ -174,7 +172,7 @@ class ChatViewSet(viewsets.ViewSet):
     request.session.modified = True
     return Response({"message": "질문 세트가 세션에 저장되었습니다."},status=200)
   
-  @extend_schema(tags = ["4.1.2 저장한 질문 정보 가져오기"])
+  @extend_schema(tags = ["4.1.2 저장한 질문/키워드 정보 가져오기"])
   @action(detail=False, methods=["GET"])
   def get_chats(self, request):
     chats = request.session.get('taru_chat', {})
@@ -192,7 +190,6 @@ class ChatViewSet(viewsets.ViewSet):
    
     if input is None:
         return Response ({"detail": "input_text가 비어있습니다."}, status=400)
-
     try:
         data = openai.create_chat(input_text=input, lang=lang)
     except requests.RequestException as e:
@@ -204,12 +201,77 @@ class ChatViewSet(viewsets.ViewSet):
             text += c.get("text", "")
 
     parsed_text = json.loads(text)
-    chat_id = data.get("id")
 
-    return Response ({"id": chat_id, "text": parsed_text})
+    taru_chat = request.session.get("taru_chat", {})
+    taru_chat.update(parsed_text)
+    request.session["taru_chat"] = taru_chat
+    request.session.modified = True
+
+    return Response ({"text": parsed_text})
+  
+  @extend_schema(
+    tags = ["4.2 타로 카드 20장 추천"],
+    parameters = [PlaceMixin],
+    description="추출한 키워드를 기반으로 카드 20장을 추천합니다.",
+  )
+  @action(detail=False, methods=["GET"])
+  def card_select(self, request):
+    query = PlaceMixin(data=request.query_params)
+    query.is_valid(raise_exception=True)
+    x = query.validated_data["x"]
+    y = query.validated_data["y"]
+    radius = query.validated_data["radius"]
+
+    try:
+        # 구글 api에 접근해서 리뷰 목록 20개 뽑기
+        places = google.search_slot(x=x, y=y, radius=radius)
+
+        # ------------장소의 리뷰에 하나씩 접근해서 세션에 저장된 값들이 포함되어있다면 장소 id, 이름 반환-----------
+        s = request.session.get('taru_chat', {}) or {}
+        chats_radius   = s.get("radius")   or ""
+        chats_budget   = s.get("budget")   or ""
+        chats_vibe     = s.get("vibe")     or ""
+        chats_category = s.get("category") or ""
+        chats_time     = s.get("time")     or ""
+
+        raw_chats = [chats_radius, chats_budget, chats_vibe, chats_category, chats_time]
+        keywords = []
+        for src in raw_chats:
+            # 공백 기준 분리, 2글자 이상만
+            for w in (src or "").split():
+                if len(w) >= 2:
+                    keywords.append((src, w)) # (원문, 단어)
+
+        select = []  # 조건 만족하는 장소
+        matches = google.keyword_match(places, keywords) # 키워드 매칭
+
+        for p in places:
+            if matches:
+                print(f"[MATCH] {p.get('place_name')} ({len(matches)} hits)")
+                for hit in matches[:5]:  # 너무 길면 상위 5개만
+                    print(
+                        f" - 리뷰#{hit['review_index']} "
+                        f"키워드='{hit['keyword']}' (원문='{hit['source_text']}') "
+                        f"내용='{hit['context']}'"
+                    )
+                
+                select.append({
+                    "select_num" : len(select) + 1,
+                    "place_id" : p.get('place_id'),
+                    "place_name" : p.get('place_name')
+                })
+    
+    except requests.HTTPError as e:
+        return Response({"detail": f"Google Places API 호출 실패: {e.response.status_code} {e.response.text}"}, status=502)
+    except requests.RequestException as e:
+        return Response({"detail": f"Google Places API 호출 실패: {e}"}, status=502)
+
+    if not places:
+        return Response({"google_place": []}, status=204)
+    return Response({"select" : select}, status=200)
 
 
-
+####################################################################################
 class PlaceRouteViewSet(viewsets.GenericViewSet):
   queryset = Place.objects.all()
   serializer_class = PlaceRouteSerializer
@@ -224,14 +286,8 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
   @action(detail=False, methods=["GET", "POST"])
   def path(self, request):
 
-    # 1) 함수 메소드 분기
-    if request.method == "POST":
-        request_data = request.query_params
-    else:
-        request_data = request.data
-
-    # 2) 유효성 검사
-    route = PlaceRouteSerializer(data=request_data)
+    # 1) 유효성 검사
+    route = PlaceRouteSerializer(data=request.query_params)
     route.is_valid(raise_exception=True)
     data = route.validated_data
 
@@ -241,7 +297,7 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
     transport = data["transport"]
     print(f"[DEBUG] 실행된 API: {transport}")
 
-    # 3) API 호출
+    # 2) API 호출
     try:
         if transport == "car": # 카카오내비(자동차)
             params = {
@@ -261,7 +317,6 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
                 endY=data["destination_y"],
                 count=1, lang=0, format="json"
             )
-
             traffic_routes = tmap.traffic_route(**params_l)
             if not traffic_routes:
                 return Response({"detail": "대중교통 경로 없음"}, status=404)

@@ -3,6 +3,7 @@ from django.conf import settings
 
 BASE = "https://api.openai.com/v1/responses"
 
+# 키워드 추출용 슬롯
 SLOT_SCHEMA = {
         "type": "object",
         "properties": {
@@ -16,6 +17,7 @@ SLOT_SCHEMA = {
         "additionalProperties": False
     }
 
+# 질문당 4개의 객관식 보기 옵션
 QUESTION_TEXT_ITEM = {
     "type": "object",
     "properties": {
@@ -31,7 +33,7 @@ QUESTION_TEXT_ITEM = {
     "required": ["que_id","question", "options"],
     "additionalProperties": False
 }
-
+# 질문+옵션 4개 연결
 QUEST_SCHEMA = {
     "type": "object",
     "properties": {
@@ -57,7 +59,7 @@ def create_question(input_text: str, lang: str = "ko", model: str = "gpt-4o-mini
     system_prompt = (
             "너는 장소 추천을 해주는 유용한 타로마스터야."
             "사용자의 무의식에서 취향과 희망사항을 알아낼 수 있도록 타로마스터에 빙의해서 질문해줘"
-            "슬롯(radius, budget, vibe, category, time)을 빠르게 채우는 객관식 질문 5개를 뽑아줘"
+            "슬롯(radius, budget, vibe, category, time)의 내용을 모두 채우는 객관식 질문 5개를 뽑아줘"
             "radius에 관한 질문의 답변은 km의 거리 단위로 나오게 해줘"
             "각 질문은 옵션을 4개씩 제공하고, 한 질문에 하나의 슬롯만을 타겟해줘"
             "모든 질문과 옵션은 직관적이지 않고 사용자의 무의식을 노려야해! 너가 타로마스터라는 걸 잊지마"
@@ -88,8 +90,6 @@ def create_question(input_text: str, lang: str = "ko", model: str = "gpt-4o-mini
 
     return r.json()
 
-
-
 #create_chat을 호출하면 그 저장한 질문을 하나씩 뽑아서 프론트에 띄우고, 답변에 대해서는 기존처럼 slot의 값을 추출하여 저장
 def create_chat(input_text: str, lang: str = "ko", model: str = "gpt-4o-mini"):
 
@@ -98,19 +98,19 @@ def create_chat(input_text: str, lang: str = "ko", model: str = "gpt-4o-mini"):
             "너는 한국어로만 대답하는 유용한 타로마스터야. "
             "사용자의 무의식에서 취향과 희망사항을 알아내어 사용자가 원하는 장소의 키워드를 추출해. "
             "아래 슬롯을 가능한 만큼 채워서 JSON으로 반환해."
-            "모르는 값은 null로 채워"
+            "모르는 값은 null로 채우지 말고, 다른 슬롯의 값을 참고해서 적절한 내용으로 채워"
         )
     else:
         system_prompt = (
             "You are a helpful tarot master that only responds in English. "
             "Infer user's tastes and wishes and return keywords as JSON by filling the slots."
         )
- 
+
     body = {
         "model": model,
         "input": [
-            {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},
-            {"role": "user", "content": [{"type": "input_text", "text": input_text}]}
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": input_text}
         ],
         "text": {
             "format": {
