@@ -181,6 +181,7 @@ CSRF_TRUSTED_ORIGINS = [ #CSRF 토큰 검증 통과
   "https://sein0327.shop",
   "https://taroute.netlify.app"
 ]
+CORS_ALLOW_CREDENTIALS = True #HTTP 자격증명 추가
 CSRF_COOKIE_SECURE = False #운영서버에서 True로 킬 것, http 보안!
 SESSION_COOKIE_SECURE = False #위와 동일
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True #브라우저 닫으면 세션 만료

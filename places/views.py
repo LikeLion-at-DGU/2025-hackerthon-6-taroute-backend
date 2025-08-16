@@ -8,7 +8,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from .models import PopularKeyward, Place
 
 from .serializers import *
-from .services import kakao, tmap, google, openai, combined_api
+from .services import kakao, tmap, google, openai
 
 import requests
 import json
@@ -82,7 +82,7 @@ class PlaceViewSet(viewsets.ViewSet):
     
     if params.get("many_review") == True:
         try:
-            data = combined_api.many_review_sort(data)
+            data = kakao.many_review_sort(data)
             print("type(data) ->", type(data))
         except requests.RequestException as e:
             # 구글 실패하더라도 카카오 결과는 반환
