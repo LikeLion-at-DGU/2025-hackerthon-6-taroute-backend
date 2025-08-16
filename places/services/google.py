@@ -1,5 +1,6 @@
 import re, requests
 from django.conf import settings
+from ..models import PopularKeyward
 
 BASE = "https://places.googleapis.com/v1/places"
 
@@ -92,21 +93,29 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
     
     for p in places[:10]:
         review_count = p.get("userRatingCount", 0)
+
+        #검색한 장소의 id가 DB에 있을 경우 인기 카운트 횟수를 세서 반환
+        try:
+            p_id = PopularKeyward.objects.get(place_id = p.get("id"))
+        except PopularKeyward.DoesNotExist:
+            pass
+        
         google_place.append({
             # 장소카드에서는 place_name, address, location
             "place_id" : p.get("id"),
             "place_name" : p.get("displayName", {}).get("text"),
             "address" : p.get("formattedAddress"),
             "location" : p.get("location"),
+            "review_count" : review_count,
+            "click_num": p_id.click_num
             # "types" : p.get("types"),
             # "phone_number" : p.get("nationalPhoneNumber"),
             # "rating" : p.get("rating"),
             # "price_range_start" : p.get("priceRange", {}).get("startPrice", {}).get("units"),
             # "price_range_end" : p.get("priceRange", {}).get("endPrice", {}).get("units"),
-            "review_count" : review_count
         })
 
-        #검색한 장소의 id가 DB에 있을 경우 인기 카운트 횟수를 세서 반환
+        
     
     return google_place
 
