@@ -1,4 +1,5 @@
 import re
+import time
 import requests
 from django.conf import settings
 
@@ -69,10 +70,11 @@ def _headers():
     }
 
 # 1.2 구글 검색기준을 이용해 장소를 검색하여 리스트를 반환
-def search_place(text_query, x, y, radius, priceLevel=None):
+def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None):
     body = {
         "textQuery": text_query,
         "languageCode": "ko",
+        "rankPreference": rankPreference, #RELEVANCE(검색관련성) / DISTANCE(거리순)
         "regionCode": "KR",
         "locationBias": {
             "circle": {
@@ -137,8 +139,7 @@ def search_detail(place_id):
         "place_name" : p.get("displayName", {}).get("text"),
         "address" : p.get("formattedAddress"),
         "location" : p.get("location"),
-        "open_now" : p.get("regularOpeningHours", {}).get("openNow"),
-        "running_time" : p.get("regularOpeningHours", {}).get("weekdayDescriptions"),
+        "running_time" : p.get("regularOpeningHours", {}),
         "place_photos" : place_photos
     }
 
@@ -157,6 +158,7 @@ def search_slot(x, y, radius):
         },
         "includedTypes": culture_types + leisure_types + food_types + cafe_types,
     }
+
     r = requests.post(f"{BASE}:searchNearby", headers=_headers(), json=body, timeout=5)
     r.raise_for_status()  # 200대가 아니면 에러 발생
     data = r.json()
@@ -210,8 +212,9 @@ def search_slot(x, y, radius):
 
 def keyword_match(places, keywords):
     
-    matches = []  # 이 장소에서의 모든 매칭 결과
+    matched_places = []  # 매칭된 장소를 담을 리스트
     for p in places:
+        place_matches = [] # 현재 장소의 매칭 결과물
         reviews = p.get("reviews_text", [])
         if not (reviews and isinstance(reviews, list)): # 리스트 형태인지 확인
             continue
@@ -226,21 +229,22 @@ def keyword_match(places, keywords):
                 # 리뷰 내 모든 키워드 요소 찾기 (겹침 허용)
                 for m in re.finditer(re.escape(w_lower), text_lower):
                     start, end = m.span()
-
-                    # 리뷰 문맥 추출 (앞뒤 10~15자 정도)
+                    # 리뷰 문맥 추출, 프린트용! (앞뒤 10~15자 정도)
                     text_start = max(0, start - 10)
                     text_end   = min(len(text), end + 10)
                     context = text[text_start:text_end]
 
                     # 결과 레코드 저장
-                    matches.append({
+                    place_matches.append({
                         "keyword": w,            # 매칭된 단어
-                        "source_text": src,      # 원래 사용자가 말한 문장/키워드 뭉치
+                        "source_text": src,      # 원문
                         "review_index": r_idx,   # 몇 번째 리뷰인지
-                        "context": context,      # 주변 문맥
+                        "context": context,      # 리뷰 내용
                     })
-    return matches
 
-# 슬롯(radius, budget, vibe, category, time)
-# radius*1000
-# budget, vibe, category, time
+        if place_matches:
+            place_copy = p.copy()
+            place_copy["matches"] = place_matches
+            matched_places.append(place_copy)
+
+    return matched_places

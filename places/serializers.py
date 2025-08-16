@@ -10,6 +10,7 @@ class PlaceMixin(serializers.Serializer):
 class PlaceSearchSerializer(PlaceMixin):
     q = serializers.CharField(source="text_query")  # API에 넘길 키 이름 매핑
     priceLevel = serializers.CharField(required=False, allow_null=True)
+    rankPreference = serializers.CharField(required=False, allow_null=True)
 
 # 1.2 장소 카테고리별 추천
 class PlaceRecommendSerializer(PlaceMixin): 
