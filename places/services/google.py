@@ -1,6 +1,4 @@
-import re
-import time
-import requests
+import re, requests
 from django.conf import settings
 
 BASE = "https://places.googleapis.com/v1/places"
@@ -107,6 +105,8 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
             # "price_range_end" : p.get("priceRange", {}).get("endPrice", {}).get("units"),
             "review_count" : review_count
         })
+
+        #검색한 장소의 id가 DB에 있을 경우 인기 카운트 횟수를 세서 반환
     
     return google_place
 

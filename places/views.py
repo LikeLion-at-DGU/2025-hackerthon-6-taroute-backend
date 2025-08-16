@@ -15,6 +15,8 @@ import json
 
 from django.shortcuts import get_object_or_404
 class PlaceViewSet(viewsets.ViewSet):
+  
+  serializer_class = PlaceMixin #unable to guess serializer 경고 해소용
   @extend_schema(
         tags=["1.1 현위치 표시"], 
         parameters=[OpenApiParameter(name="query", description="검색할 지역명", required=True, type=str)])
@@ -143,13 +145,14 @@ class PlaceViewSet(viewsets.ViewSet):
     return Response({"place_name" : keyword.place_name} for keyword in popular_keywords)
 
 
-################################################################################
+###########################################################################################################
 class ChatViewSet(viewsets.ViewSet):
   #4. 타루 챗봇 대화
   # 호출 시 타로마스터 ai의 질문 목록을 저장합니다.
+  serializer_class = ChatSerializer
+
   @extend_schema(
     tags = ["4.1.1 타루 챗봇 질문 리스트 저장"],
-    # request=ChatSerializer,
     description="타로마스터 ai가 4지선다 질문 5개 목록을 생성합니다.",
   )
   @action(detail=False, methods=["POST"])
@@ -211,7 +214,6 @@ class ChatViewSet(viewsets.ViewSet):
   
   @extend_schema(
     tags = ["4.2 타로 카드 20장 추천"],
-    # parameters = [PlaceMixin],
     parameters = [
         OpenApiParameter(name="x", required=True, type=float),
         OpenApiParameter(name="y", required=True, type=float),
