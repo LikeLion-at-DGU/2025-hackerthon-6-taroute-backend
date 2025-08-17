@@ -1,8 +1,8 @@
 import re
 from django.shortcuts import render
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, action
-from rest_framework import viewsets, mixins
+from rest_framework.decorators import action
+from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from .models import PopularKeyward, Place
@@ -320,7 +320,7 @@ class ChatViewSet(viewsets.ViewSet):
     return Response({"select" : select}, status=200)
 
 
-####################################################################################
+###############################################################################################################################
 class PlaceRouteViewSet(viewsets.GenericViewSet):
   queryset = Place.objects.all()
   serializer_class = PlaceRouteSerializer
