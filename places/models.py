@@ -12,11 +12,7 @@ class Place(models.Model):
   running_time = models.CharField(max_length=50)
   place_url = models.TextField(null=True, blank=True)
   created_at = models.DateTimeField(auto_now_add=True)
-  # category = models.ForeignKey()
-  # place_total_count
 
-
-  # 인기잇는 검색어에는 그 DB의 카운트가 많은 순 action을 보여주자 [GET]
   # 인기순에는 장소의 위도경도이름을 보고 우리꺼랑 대조해서 일치하면 카운트를 가져와가지고 정렬 [구글-우리DB]
 
 class PopularKeyward(models.Model):

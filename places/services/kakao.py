@@ -1,6 +1,7 @@
-import json
 import requests
 from django.conf import settings
+
+from ..services import google
 from ..models import SubwayLines
 from django.db.models import Q #검색어 일부가 포함된 지하철역 검색  
 
@@ -73,7 +74,7 @@ def _search_category(category, x, y, radius, size=10):
         for p in places[:size] #장소 리스트 상한 10개
     ]
 
-def recommend_place(x, y, radius, category_group_code=None, limit=10):
+def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
     if not category_group_code or category_group_code == "all":
         codes = CATEGORY
         limit = 3 #검색창 하단 카테고리 추천 수 제한
@@ -85,6 +86,28 @@ def recommend_place(x, y, radius, category_group_code=None, limit=10):
         for code in codes
     }
     return results[CATEGORY_LABELS[codes[0]]] if len(codes) == 1 else results
+
+# 카카오 recommend 후 구글 search_place(리뷰순정렬)
+def many_review_sort(place_list):
+    review_sort = []
+    for p in place_list:  # 각 장소 딕셔너리 순회
+      print("place_name:", p.get("place_name"))
+      try:
+          res = google.search_place(
+              text_query = p["place_name"],
+              x = float(p["x"]),
+              y = float(p["y"]),
+              radius = 500
+          )
+          if isinstance(res, list) and len(res) > 0:
+            count = res[0].get("review_count", 0)
+      except requests.RequestException:
+          count = 0
+      review_sort.append({**p, "review_count": count}) # 구글 리뷰수를 리스트에 추가
+
+      review_sort.sort(key=lambda v: v.get("review_count", 0), reverse=True) # 오름차순 정렬 후 반환
+
+    return review_sort
 
 # 6.1 등록된 카드의 동선 안내(택시, 자동차)
 def car_route(origin:str, destination:str):

@@ -1,65 +1,28 @@
 import re
 from django.shortcuts import render
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, action
-from rest_framework import viewsets, mixins
+from rest_framework.decorators import action
+from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from .models import PopularKeyward, Place
 
 from .serializers import *
-from .services import kakao, tmap, google, openai, combined_api
+from .services import kakao, tmap, google, openai
 
 import requests
 import json
 
 from django.shortcuts import get_object_or_404
 class PlaceViewSet(viewsets.ViewSet):
+  
+  serializer_class = PlaceMixin #unable to guess serializer 경고 해소용
+  # 메인 페이지
+  ######################################################################################
   @extend_schema(
-        tags=["1.1 현위치 표시"], 
-        parameters=[OpenApiParameter(name="query", description="검색할 지역명", required=True, type=str)])
-  @action(detail=False, methods=["GET"])
-  def locate(self, request):
-    query = request.query_params.get("query")
-
-    try:
-        address_list = kakao.locate_dong(query)
-    except requests.RequestException as e:
-        return Response({"detail": f"카카오 API 호출 실패: {e}"}, status=502)
-
-    return Response({"address_list": address_list}, status=200)
-
-  # 1.2 구글 장소 검색 → place 정보 반환
-  @extend_schema(
-    tags=["1.2 검색바 / 구글 장소 검색"],
-    parameters=[PlaceSearchSerializer],
-  )
-  @action(detail=False, methods=["GET"])
-  def google_place(self, request):
-    query = PlaceSearchSerializer(data=request.query_params)
-    query.is_valid(raise_exception=True)
-    params = query.validated_data
-
-    try:
-        places = google.search_place(**params)
-    except requests.HTTPError as e:
-        return Response({"detail": f"Google Places API 호출 실패: {e.response.status_code} {e.response.text}"}, status=502)
-    except requests.RequestException as e:
-        return Response({"detail": f"Google Places API 호출 실패: {e}"}, status=502)
-
-    if not places:
-        return Response({"google_place": []}, status=204)
-
-    return Response({"google_place" : places}, status=200)
-
-  # 1.2 장소 카테고리별 추천, 1.5 지금 이지역에서 뜨고 있는
-  # (1) 지금 이지역에서 뜨고 있는 / 리뷰 True, 구글 리뷰가 많은 순으로 위치 기반 카테고리별 3개씩 추천 
-  # (2) 주변에 가볼만한 곳 / 카테고리 all 또는 blank 시 카테고리별 3개씩 추천
-  @extend_schema(
-    tags = ["1.2 주변에 가볼만한 곳, 1.5 지금 이지역에서 뜨고 있는"],
+    tags = ["🔥메인페이지"], summary="1.1 요즘 뜨는 운명의 장소 / 주변에 가볼만한 곳",
     parameters=[PlaceRecommendSerializer]
   )
-
   #CT1 문화시설, AT4 관광명소, FD6 음식점, CE7 카페
   @action(detail=False, methods=["GET"])
   def recommend(self, request):
@@ -82,7 +45,7 @@ class PlaceViewSet(viewsets.ViewSet):
     
     if params.get("many_review") == True:
         try:
-            data = combined_api.many_review_sort(data)
+            data = kakao.many_review_sort(data)
             print("type(data) ->", type(data))
         except requests.RequestException as e:
             # 구글 실패하더라도 카카오 결과는 반환
@@ -93,7 +56,35 @@ class PlaceViewSet(viewsets.ViewSet):
         
     return Response({"data": data}, status=200) 
   
-  @extend_schema(tags = ["1.2 장소 저장하기"], parameters=[SavePlaceSerializer])
+  @extend_schema(tags= ["🔥메인페이지"], summary="1.2 현재 인기있는 검색어")
+  @action(detail=False, methods=["GET"])
+  def top10_keyword(self, request):
+    popular_keywords = PopularKeyward.objects.all().order_by("-click_num")[:10]
+    return Response({"place_name" : keyword.place_name} for keyword in popular_keywords)
+  
+  @extend_schema(
+    tags=["🔥메인페이지"], summary="1.3 검색바 / 구글 장소 검색",
+    parameters=[PlaceSearchSerializer],
+  )
+  @action(detail=False, methods=["GET"])
+  def google_place(self, request):
+    query = PlaceSearchSerializer(data=request.query_params)
+    query.is_valid(raise_exception=True)
+    params = query.validated_data
+
+    try:
+        places = google.search_place(**params)
+    except requests.HTTPError as e:
+        return Response({"detail": f"Google Places API 호출 실패: {e.response.status_code} {e.response.text}"}, status=502)
+    except requests.RequestException as e:
+        return Response({"detail": f"Google Places API 호출 실패: {e}"}, status=502)
+
+    if not places:
+        return Response({"detail": "검색 결과 없음", "google_place": []}, status=204)
+
+    return Response({"google_place" : places}, status=200)
+  
+  @extend_schema(tags = ["🔥메인페이지"], summary="1.4 장소 찜(저장)하기", parameters=[SavePlaceSerializer])
   @action(detail=False, methods=["GET"])
   def save_place(self, request):
     place_id = request.query_params.get('place_id')
@@ -129,27 +120,38 @@ class PlaceViewSet(viewsets.ViewSet):
     except Exception as e:
         return Response({"detail": f"오류 발생: {str(e)}"}, status=400)
 
-  @extend_schema(tags = ["1.2 저장한 장소 정보 가져오기"])
+  @extend_schema(tags = ["🔥메인페이지"], summary="1.4 저장한 장소 정보 가져오기")
   @action(detail=False, methods=["GET"])
   def get_saved_places(self, request):
     # 세션에서 저장된 장소 정보 가져오기
     saved_places = request.session.get('saved_places', {})
     return Response({'places': saved_places})
   
-  @extend_schema(tags= ["1.2 실시간 인기검색어"]) #위치기반?
+  # 위치 페이지
+  ######################################################################################################
+  @extend_schema(
+        tags=["🔥위치페이지"], summary="2.1 현위치 표시", 
+        parameters=[OpenApiParameter(name="query", description="검색할 지역명", required=True, type=str)])
   @action(detail=False, methods=["GET"])
-  def top10_keyword(self, request):
-    popular_keywords = PopularKeyward.objects.all().order_by("-click_num")[:10]
-    return Response({"place_name" : keyword.place_name} for keyword in popular_keywords)
+  def locate(self, request):
+    query = request.query_params.get("query")
 
+    try:
+        address_list = kakao.locate_dong(query)
+    except requests.RequestException as e:
+        return Response({"detail": f"카카오 API 호출 실패: {e}"}, status=502)
 
-################################################################################
+    return Response({"address_list": address_list}, status=200)
+
+# 타로 페이지
+###########################################################################################################
 class ChatViewSet(viewsets.ViewSet):
   #4. 타루 챗봇 대화
   # 호출 시 타로마스터 ai의 질문 목록을 저장합니다.
+  serializer_class = ChatSerializer
+
   @extend_schema(
-    tags = ["4.1.1 타루 챗봇 질문 리스트 저장"],
-    # request=ChatSerializer,
+    tags = ["🔥타로페이지"], summary="4.1 타루 챗봇 질문 리스트 저장",
     description="타로마스터 ai가 4지선다 질문 5개 목록을 생성합니다.",
   )
   @action(detail=False, methods=["POST"])
@@ -170,63 +172,51 @@ class ChatViewSet(viewsets.ViewSet):
     session = {"questions": parsed_text}
     request.session["taru_chat"] = session
     request.session.modified = True
-    return Response({"message": "질문 세트가 세션에 저장되었습니다."},status=200)
+    return Response({"message": "질문 세트가 세션에 저장되었습니다.", "chats":session},status=200)
   
-  @extend_schema(tags = ["4.1.2 저장한 질문/키워드 정보 가져오기"])
-  @action(detail=False, methods=["GET"])
-  def get_chats(self, request):
-    chats = request.session.get('taru_chat', {})
-    return Response({'chats': chats})
-
+  # 세션 확인용
+#   @extend_schema(tags = ["🔥타로페이지"], summary="4.2 저장한 질문/키워드 정보 가져오기")
+#   @action(detail=False, methods=["GET"])
+#   def get_chats(self, request):
+#     chats = request.session.get('taru_chat', {})
+#     return Response({'chats': chats})
+  
   @extend_schema(
-    tags = ["4.1.3 타루 챗봇 대화 키워드 추출"],
-    request=ChatSerializer,
-    description="사용자 답변을 받아 ai가 키워드를 추출합니다.",
+    tags = ["🔥타로페이지"], summary="4.2 타로 카드 20장 추천",
+    request= CardSelectSerializer,
+    description="입력한 답변에서 추출한 키워드를 기반으로 카드 20장을 추천합니다.",
   )
   @action(detail=False, methods=["POST"])
-  def slot_fill(self, request):
+  def card_select(self, request):
+
+    # 1) 입력한 답변에서 키워드 추출
     input = request.data.get("input_text")
     lang = (request.data.get("lang") or "ko").lower()
-   
+    x = request.data.get("x")
+    y = request.data.get("y")
+
     if input is None:
         return Response ({"detail": "input_text가 비어있습니다."}, status=400)
     try:
         data = openai.create_chat(input_text=input, lang=lang)
     except requests.RequestException as e:
         return Response({"detail": f"openAI API 호출 실패: {e}"}, status=502)
-
+    
     text = ""
     for block in data.get("output", []):
         for c in block.get("content", []):
             text += c.get("text", "")
 
     parsed_text = json.loads(text)
-
+    
+    # 세션에 저장
     taru_chat = request.session.get("taru_chat", {})
     taru_chat.update(parsed_text)
     request.session["taru_chat"] = taru_chat
     request.session.modified = True
 
-    return Response ({"text": parsed_text})
-  
-  @extend_schema(
-    tags = ["4.2 타로 카드 20장 추천"],
-    # parameters = [PlaceMixin],
-    parameters = [
-        OpenApiParameter(name="x", required=True, type=float),
-        OpenApiParameter(name="y", required=True, type=float),
-    ],
-    description="추출한 키워드를 기반으로 카드 20장을 추천합니다.",
-  )
-  @action(detail=False, methods=["GET"])
-  def card_select(self, request):
-    query = PlaceMixin(data=request.query_params)
-    query.is_valid(raise_exception=True)
-    x = query.validated_data["x"]
-    y = query.validated_data["y"]
-
     try:
-        # 구글 api에 접근해서 리뷰 목록 20개 뽑기
+        # 2) 구글 api에 접근해서 리뷰 목록 20개 뽑기
         s = request.session.get('taru_chat', {}) or {}
         chats_radius   = s.get("radius", 0)
 
@@ -246,7 +236,7 @@ class ChatViewSet(viewsets.ViewSet):
         print(f"radius {radius}")
         places = google.search_slot(x=x, y=y, radius=radius)
 
-        # ------------장소의 리뷰에 하나씩 접근해서 세션에 저장된 값들이 포함되어있다면 장소 id, 이름 반환-----------
+        # ------------3) 장소의 리뷰에 하나씩 접근해서 세션에 저장된 값들이 포함되어있다면 장소 id, 이름 반환-----------
         
         chats_budget   = s.get("budget")   or ""
         chats_vibe     = s.get("vibe")     or ""
@@ -285,7 +275,7 @@ class ChatViewSet(viewsets.ViewSet):
                 p_id.add(place_id)
                 add_count += 1
 
-        print(f"이번 시도에서 {add_count}개 장소 추가됨, 현재 총 {len(select)}개")
+        # print(f"{add_count}개 장소 추가됨, 현재 총 {len(select)}개")
 
         while len(select) < 20 :
             places_two = google.search_slot(x=x, y=y, radius=radius*1.5)
@@ -302,7 +292,7 @@ class ChatViewSet(viewsets.ViewSet):
 
                     if len(select) >= 20: break
             
-            print(f"이번 시도에서 {add_count}개 장소 추가됨, 현재 총 {len(select)}개")
+            # print(f"이번 시도에서 {add_count}개 장소 추가됨, 현재 총 {len(select)}개")
         
             if add_count == 0:  # 더 이상 새로운 장소를 찾지 못하면 종료
                 print("더 이상 새로운 장소를 찾을 수 없습니다.")
@@ -317,15 +307,15 @@ class ChatViewSet(viewsets.ViewSet):
         return Response({"google_place": []}, status=204)
     return Response({"select" : select}, status=200)
 
-
-####################################################################################
+# 동선 페이지
+###############################################################################################################################
 class PlaceRouteViewSet(viewsets.GenericViewSet):
   queryset = Place.objects.all()
   serializer_class = PlaceRouteSerializer
 
   # 6.1 등록된 카드의 동선 안내
   @extend_schema(
-    tags = ["6.1 등록된 카드의 동선 안내"],
+    tags = ["🔥동선페이지"], summary="6.1 등록된 카드의 동선 안내",
     parameters=[PlaceRouteSerializer],
     description="출발지, 도착지 좌표로 경로 안내(GET=자동차, POST=대중교통, 도보)",
  )

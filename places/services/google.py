@@ -1,7 +1,6 @@
-import re
-import time
-import requests
+import re, requests
 from django.conf import settings
+from ..models import PopularKeyward
 
 BASE = "https://places.googleapis.com/v1/places"
 
@@ -94,19 +93,32 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
     
     for p in places[:10]:
         review_count = p.get("userRatingCount", 0)
+
+        #검색한 장소의 id가 DB에 있을 경우 인기 카운트 횟수를 세서 반환
+        p_id = ""
+        click_num = 0
+        try:
+            p_id = PopularKeyward.objects.get(place_id = p.get("id"))
+            click_num = p_id.click_num if p_id else 0
+        except PopularKeyward.DoesNotExist:
+            pass
+        
         google_place.append({
             # 장소카드에서는 place_name, address, location
             "place_id" : p.get("id"),
             "place_name" : p.get("displayName", {}).get("text"),
             "address" : p.get("formattedAddress"),
             "location" : p.get("location"),
+            "review_count" : review_count,
+            "click_num": click_num
             # "types" : p.get("types"),
             # "phone_number" : p.get("nationalPhoneNumber"),
             # "rating" : p.get("rating"),
             # "price_range_start" : p.get("priceRange", {}).get("startPrice", {}).get("units"),
             # "price_range_end" : p.get("priceRange", {}).get("endPrice", {}).get("units"),
-            "review_count" : review_count
         })
+
+        
     
     return google_place
 
@@ -116,6 +128,75 @@ def build_photo_url(photo_name: str, max_width_px: int = 800) -> str:
         f"https://places.googleapis.com/v1/{photo_name}/media"
         f"?key={settings.GOOGLE_API_KEY}&maxWidthPx={max_width_px}"
     )
+
+# 영업시간 정보 데이터 가공
+DAYS = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"]
+
+def format_time(h, m):
+    return f"{h:02d}:{m:02d}"
+
+def format_running(running_time):
+    result = []
+    all_breaks = []  # 모든 요일의 브레이크 타임을 저장할 리스트
+    
+    for d in range(7):
+        day_periods = [ 
+            p for p in running_time.get("periods", []) 
+            if p.get("open") and p["open"].get("day") == d 
+        ]
+        # day 값이 없으면 휴무일
+        if not day_periods:
+            result.append(f"{DAYS[d]} 휴무일")
+            continue
+
+        # 시간을 분 단위로 변환하여 전체 시간 계산
+        intervals = []
+        for p in day_periods:
+            start_mins = p["open"]["hour"] * 60 + p["open"]["minute"]
+            end_mins = p["close"]["hour"] * 60 + p["close"]["minute"]
+            if end_mins == 0:  # 자정은 24*60으로 변환
+                end_mins = 24 * 60
+            intervals.append((start_mins, end_mins))
+        
+        # 정렬 후 전체 시간 범위 찾기
+        intervals.sort()
+        first_start = intervals[0][0]
+        last_end = intervals[-1][1]
+        
+        # 전체 시간 포맷팅
+        start_h, start_m = divmod(first_start, 60)
+        end_h, end_m = divmod(last_end, 60)
+        full_time = f"{format_time(start_h, start_m)}-{format_time(end_h, end_m)}"
+        
+        # 브레이크타임 계산
+        day_breaks = []
+        if len(intervals) > 1:
+            for i in range(len(intervals) - 1):
+                end_time = intervals[i][1]
+                next_start = intervals[i + 1][0]
+                gap = next_start - end_time
+                
+                if 0 < gap <= 180:  # 3시간 이하만 브레이크타임으로 간주
+                    end_h, end_m = divmod(end_time, 60)
+                    next_h, next_m = divmod(next_start, 60)
+                    break_time = f"{format_time(end_h, end_m)}-{format_time(next_h, next_m)}"
+                    day_breaks.append(break_time)
+        
+        all_breaks.append(day_breaks)
+        result.append(f"{DAYS[d]} {full_time}")
+    
+    # 브레이크 타임이 모두 동일한 지 체크
+    if all_breaks and all(breaks == all_breaks[0] for breaks in all_breaks if breaks):
+        if all_breaks[0]:
+            result.append(f"쉬는 시간 매일 {', '.join(all_breaks[0])}")
+    else:
+        # 브레이크 타임이 다르다면 각 요일별로 추가
+        result.append("쉬는 시간")
+        for d in range(7):
+            if all_breaks[d]:
+                result.append(f"{DAYS[d]} {', '.join(all_breaks[d])}")
+    
+    return result
 
 # 1.2 장소를 저장하기 위해, 프론트로부터 place_id를 받고 세부 데이터 응답
 def search_detail(place_id):
@@ -135,11 +216,18 @@ def search_detail(place_id):
         if p.get("name")
     }
 
+    running_time = p.get("regularOpeningHours", {})
+    if not running_time:
+        time = "영업시간 정보 없음"
+    else:
+        time = format_running(running_time)
+
     search_details = {
         "place_name" : p.get("displayName", {}).get("text"),
         "address" : p.get("formattedAddress"),
         "location" : p.get("location"),
-        "running_time" : p.get("regularOpeningHours", {}),
+        "running_time" : time,
+        # "running_time_raw" : running_time, 필요 시 프론트 제공
         "place_photos" : place_photos
     }
 
