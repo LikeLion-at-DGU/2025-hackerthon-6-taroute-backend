@@ -74,7 +74,7 @@ def _search_category(category, x, y, radius, size=10):
         for p in places[:size] #장소 리스트 상한 10개
     ]
 
-def recommend_place(x, y, radius, category_group_code=None, limit=10):
+def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
     if not category_group_code or category_group_code == "all":
         codes = CATEGORY
         limit = 3 #검색창 하단 카테고리 추천 수 제한
@@ -87,15 +87,10 @@ def recommend_place(x, y, radius, category_group_code=None, limit=10):
     }
     return results[CATEGORY_LABELS[codes[0]]] if len(codes) == 1 else results
 
-# 카카오 recommend 후 구글 search_place
+# 카카오 recommend 후 구글 search_place(리뷰순정렬)
 def many_review_sort(place_list):
-  
-  sorted_data = {}
-
-  for category, places in place_list.items():
-    print(f"category: {category}, type(places): {type(places)}, len: {len(places)}")
     review_sort = []
-    for p in places:  # 각 장소 딕셔너리 순회
+    for p in place_list:  # 각 장소 딕셔너리 순회
       print("place_name:", p.get("place_name"))
       try:
           res = google.search_place(
@@ -111,9 +106,8 @@ def many_review_sort(place_list):
       review_sort.append({**p, "review_count": count}) # 구글 리뷰수를 리스트에 추가
 
       review_sort.sort(key=lambda v: v.get("review_count", 0), reverse=True) # 오름차순 정렬 후 반환
-      sorted_data[category] = review_sort
 
-  return sorted_data
+    return review_sort
 
 # 6.1 등록된 카드의 동선 안내(택시, 자동차)
 def car_route(origin:str, destination:str):

@@ -227,7 +227,7 @@ def search_detail(place_id):
         "address" : p.get("formattedAddress"),
         "location" : p.get("location"),
         "running_time" : time,
-        "running_time_raw" : running_time,
+        # "running_time_raw" : running_time, 필요 시 프론트 제공
         "place_photos" : place_photos
     }
 

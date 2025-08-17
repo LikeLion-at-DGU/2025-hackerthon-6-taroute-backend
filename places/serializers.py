@@ -14,11 +14,10 @@ class PlaceSearchSerializer(PlaceMixin):
 
 # 1.2 장소 카테고리별 추천
 class PlaceRecommendSerializer(PlaceMixin): 
-    radius = serializers.IntegerField(required=True)
+    # radius = serializers.IntegerField(required=True)
     category_group_code = serializers.CharField(required=False)
-    limit = serializers.IntegerField(required=False, default=10)
+    limit = serializers.IntegerField(required=False, default=7)
     many_review = serializers.BooleanField(required=False) #지금 인기있는 순=리뷰 많은 순!
-    # 인기순 관련 : 검색어가 비슷한 것끼리 모델에 저장되어 카운트?
 
 # 1.2 장소 저장하기
 class SavePlaceSerializer(serializers.Serializer):
@@ -33,6 +32,9 @@ class ChatSerializer(serializers.Serializer):
     input_text = serializers.CharField()
     lang = serializers.ChoiceField(choices=["ko","en"], required=False)
 
+class CardSelectSerializer(PlaceMixin):
+    input_text = serializers.CharField()
+    lang = serializers.ChoiceField(choices=["ko","en"], required=False)
 
 # 6.1 등록된 카드의 동선 안내
 class PlaceRouteSerializer(serializers.Serializer):
