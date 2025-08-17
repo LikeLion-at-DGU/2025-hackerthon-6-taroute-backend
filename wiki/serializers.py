@@ -21,11 +21,11 @@ class WikiSearchQuerySerializer(serializers.Serializer):
         help_text="검색할 장소명"
     )
     
-    location_name = serializers.CharField(
-        required=False,
-        max_length=100,
-        help_text="검색할 지역명"
-    )
+    # location_name = serializers.CharField(
+    #     required=False,
+    #     max_length=100,
+    #     help_text="검색할 지역명"
+    # )
     
     # 사용자 현재 위치 (선택사항)
     longitude = serializers.FloatField(
@@ -46,26 +46,26 @@ class WikiSearchQuerySerializer(serializers.Serializer):
         help_text="검색 반경(미터), 기본 20km"
     )
     
-    page = serializers.IntegerField(
-        default=1,
-        min_value=1,
-        max_value=45,
-        help_text="페이지 번호"
-    )
+    # page = serializers.IntegerField(
+    #     default=1,
+    #     min_value=1,
+    #     max_value=45,
+    #     help_text="페이지 번호"
+    # )
     
-    size = serializers.IntegerField(
-        default=15,
-        min_value=1,
-        max_value=15,
-        help_text="한 페이지 결과 수"
-    )
+    # size = serializers.IntegerField(
+    #     default=15,
+    #     min_value=1,
+    #     max_value=15,
+    #     help_text="한 페이지 결과 수"
+    # )
     
-    # 세션 키 (검색 기록 저장용)
-    session_key = serializers.CharField(
-        required=False,
-        max_length=64,
-        help_text="사용자 세션 키"
-    )
+    # # 세션 키 (검색 기록 저장용)
+    # session_key = serializers.CharField(
+    #     required=False,
+    #     max_length=64,
+    #     help_text="사용자 세션 키"
+    # )
 
     def validate(self, data):
         """검색 키워드 유효성 검사
@@ -202,19 +202,23 @@ class WikiReviewSerializer(serializers.ModelSerializer):
         help_text="리뷰 수정 시간"
     )
 
+    place_name = serializers.CharField(source='place.name', read_only=True)
+    gplace_id   = serializers.CharField(source='place.gplace_id', read_only=True)
+
     class Meta:
         model = Review
         fields = [
             'id',
-            'place',
             'review_content',
             'review_score', 
             'ai_review',
             'review_image',
             'created_at',
-            'updated_at'
+            'updated_at',
+            'place_name',
+            'gplace_id',
         ]
-        read_only_fields = ['ai_review']
+        read_only_fields = ['place','ai_review']
 
     def validate_review_content(self, value):
         """리뷰 내용 유효성 검사"""
@@ -233,19 +237,22 @@ class WikiReviewCreateSerializer(WikiReviewSerializer):
     """위키 리뷰 생성 전용 시리얼라이저
     - 장소 ID를 따로 받기 위한 확장
     """
-    place_id = serializers.IntegerField(
+    place_id = serializers.CharField(
         write_only=True,
         help_text="리뷰를 작성할 장소 ID"
     )
 
     class Meta(WikiReviewSerializer.Meta):
         fields = WikiReviewSerializer.Meta.fields + ['place_id']
+        extra_kwargs = {
+            'place': {'read_only': True},  # 요청 시 받지 않도록 함!
+        }
         
     def create(self, validated_data):
         """리뷰 생성 시 place_id를 place 객체로 변환"""
         place_id = validated_data.pop('place_id')
         try:
-            place = Place.objects.get(id=place_id)
+            place = Place.objects.get(gplace_id=place_id)
             validated_data['place'] = place
         except Place.DoesNotExist:
             raise serializers.ValidationError(

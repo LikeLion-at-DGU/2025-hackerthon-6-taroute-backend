@@ -84,10 +84,10 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_200_OK)
 
     @extend_schema(
-        tags=["위키 후기"],
+        tags=["🔥위키페이지"],
         request=WikiReviewCreateSerializer,
         responses={201: WikiReviewSerializer},
-        description="3.2.2 후기 작성 - POST: 새로운 후기 작성 (약속, 별점, 내용)"
+        summary="3.2.2 후기 작성 - POST: 새로운 후기 작성 (약속, 별점, 내용)"
     )
     def create(self, request, *args, **kwargs):
         """리뷰 생성 - 약속(내용), 별점, 이미지 포함"""

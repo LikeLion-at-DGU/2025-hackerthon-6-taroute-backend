@@ -26,9 +26,11 @@ from .services import (
     search_places_by_keyword,
     parse_kakao_place_data,
     generate_ai_summary,
-    calculate_distance,
+    # calculate_distance,
     get_popular_search_keywords
 )
+
+from .service import google
 
 import logging
 
@@ -40,149 +42,78 @@ class WikiViewSet(viewsets.GenericViewSet):
     queryset = WikiPlace.objects.all()
 
     @extend_schema(
-        tags=["위키 검색"],
-        parameters=[
-            OpenApiParameter(name="place_name", description="검색할 장소명", required=False, type=str),
-            OpenApiParameter(name="location_name", description="검색할 지역명", required=False, type=str),
-            OpenApiParameter(name="longitude", description="사용자 현재 위치 경도", required=False, type=float),
-            OpenApiParameter(name="latitude", description="사용자 현재 위치 위도", required=False, type=float),
-            OpenApiParameter(name="radius", description="검색 반경(미터)", required=False, type=int),
-            OpenApiParameter(name="page", description="페이지 번호", required=False, type=int),
-            OpenApiParameter(name="size", description="한 페이지 결과 수", required=False, type=int),
-            OpenApiParameter(name="session_key", description="세션 키", required=False, type=str),
-        ],
+        tags=["🔥위키페이지"],
+        parameters=[WikiSearchQuerySerializer],
         responses={200: WikiPlaceSearchResultSerializer(many=True)},
-        description="3.1 위키 검색 - 장소 및 지역 검색 가능 → 핫한 장소, 지역 안내"
+        summary="3.1 위키 검색 - 장소 및 지역 검색 가능 → 핫한 장소, 지역 안내"
     )
     @action(detail=False, methods=["GET"])
     def search(self, request):
-        """위키 검색 기능 - 카카오 API 활용"""
+        """위키 검색 기능 - 카카오 -> 구글 API 활용"""
         # 요청 파라미터 유효성 검사
         query_serializer = WikiSearchQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
         
         search_data = query_serializer.validated_data
-        place_name = search_data.get('place_name', '')
-        location_name = search_data.get('location_name', '')
-        user_longitude = search_data.get('longitude')
-        user_latitude = search_data.get('latitude')
-        radius = search_data.get('radius', 20000)
-        page = search_data.get('page', 1)
-        size = search_data.get('size', 15)
-        session_key = search_data.get('session_key')
-        
-        # 검색 쿼리 구성 (장소명과 지역명 결합)
-        search_query = ' '.join(filter(None, [place_name, location_name])).strip()
         
         try:
-            # 카카오 API 호출
-            kakao_result = search_places_by_keyword(
-                query=search_query,
-                x=user_longitude,
-                y=user_latitude,
-                radius=radius,
-                page=page,
-                size=size
-            )
+            # 구글 API 호출
+            google_places = google.search_place(**search_data)
             
-            # 카카오 응답 데이터 처리
-            kakao_places = kakao_result.get('documents', [])
-            search_results = []
+                
+            #     # 기존 Place 모델에서 해당 장소 찾기 (좌표 기반)
+            #     existing_place = None
+            #     try:
+            #         # 좌표가 비슷한 기존 장소 찾기 (오차 허용 범위: 0.001도 약 100m)
+            #         existing_place = Place.objects.filter(
+            #             longitude__range=(place_data['longitude'] - 0.001, place_data['longitude'] + 0.001),
+            #             latitude__range=(place_data['latitude'] - 0.001, place_data['latitude'] + 0.001)
+            #         ).first()
+            #     except Exception as e:
+            #         logger.warning(f"기존 장소 검색 중 오류: {e}")
+                
+            #     # WikiPlace 조회
+            #     wiki_place = None
+            #     if existing_place:
+            #         try:
+            #             wiki_place = WikiPlace.objects.get(place=existing_place)
+            #         except WikiPlace.DoesNotExist:
+            #             pass
+                
+            #     # 평점 정보 계산
+            #     review_score = 0.00
+            #     if wiki_place:
+            #         review_score = wiki_place.average_review_score
+            #     elif existing_place:
+            #         # 실시간 평점 계산
+            #         reviews = Review.objects.filter(place=existing_place)
+            #         if reviews.exists():
+            #             from django.db.models import Avg
+            #             avg_score = reviews.aggregate(avg=Avg('review_score'))['avg']
+            #             review_score = float(avg_score) if avg_score else 0.00
+                
             
-            for kakao_place in kakao_places:
-                # 카카오 데이터를 내부 형식으로 변환
-                place_data = parse_kakao_place_data(kakao_place)
-                if not place_data:
-                    continue
-                
-                # 기존 Place 모델에서 해당 장소 찾기 (좌표 기반)
-                existing_place = None
-                try:
-                    # 좌표가 비슷한 기존 장소 찾기 (오차 허용 범위: 0.001도 약 100m)
-                    existing_place = Place.objects.filter(
-                        longitude__range=(place_data['longitude'] - 0.001, place_data['longitude'] + 0.001),
-                        latitude__range=(place_data['latitude'] - 0.001, place_data['latitude'] + 0.001)
-                    ).first()
-                except Exception as e:
-                    logger.warning(f"기존 장소 검색 중 오류: {e}")
-                
-                # WikiPlace 조회
-                wiki_place = None
-                if existing_place:
-                    try:
-                        wiki_place = WikiPlace.objects.get(place=existing_place)
-                    except WikiPlace.DoesNotExist:
-                        pass
-                
-                # 거리 계산 (사용자 위치가 있는 경우)
-                distance_text = place_data.get('distance', '')
-                if user_latitude and user_longitude and not distance_text:
-                    distance_km = calculate_distance(
-                        user_latitude, user_longitude,
-                        place_data['latitude'], place_data['longitude']
-                    )
-                    distance_text = f"{distance_km}km"
-                
-                # 평점 정보 계산
-                review_score = 0.00
-                if wiki_place:
-                    review_score = wiki_place.average_review_score
-                elif existing_place:
-                    # 실시간 평점 계산
-                    reviews = Review.objects.filter(place=existing_place)
-                    if reviews.exists():
-                        from django.db.models import Avg
-                        avg_score = reviews.aggregate(avg=Avg('review_score'))['avg']
-                        review_score = float(avg_score) if avg_score else 0.00
-                
-                # 검색 결과 구성
-                result_data = {
-                    'place_name': place_data['name'],
-                    'location_name': place_data['address'],
-                    'longitude': place_data['longitude'],
-                    'latitude': place_data['latitude'],
-                    'address': place_data['address'],  # place_location 필드용
-                    'review_score': review_score,
-                    'distance': distance_text,
-                    'category': place_data.get('category_name', ''),
-                    'kakao_place_id': place_data.get('kakao_place_id', ''),
-                }
-                
-                search_results.append(result_data)
-            
-            # 검색 기록 저장 (세션 키가 있는 경우)
-            if session_key:
-                try:
-                    search_type = 'mixed'
-                    if place_name and not location_name:
-                        search_type = 'place_name'
-                    elif location_name and not place_name:
-                        search_type = 'location_name'
+            # # 검색 기록 저장 (세션 키가 있는 경우)
+            # if session_key:
+            #     try:
+            #         search_type = 'mixed'
+            #         if place_name and not location_name:
+            #             search_type = 'place_name'
+            #         elif location_name and not place_name:
+            #             search_type = 'location_name'
                     
-                    WikiSearchHistory.objects.create(
-                        search_query=search_query,
-                        search_type=search_type,
-                        result_count=len(search_results),
-                        session_key=session_key,
-                        search_longitude=user_longitude,
-                        search_latitude=user_latitude
-                    )
-                except Exception as e:
-                    logger.warning(f"검색 기록 저장 실패: {e}")
-            
-            # 응답 반환
-            serializer = WikiPlaceSearchResultSerializer(search_results, many=True)
-            
-            return Response({
-                'results': serializer.data,
-                'meta': {
-                    'total_count': kakao_result.get('meta', {}).get('total_count', 0),
-                    'pageable_count': kakao_result.get('meta', {}).get('pageable_count', 0),
-                    'is_end': kakao_result.get('meta', {}).get('is_end', True),
-                    'current_page': page,
-                    'size': size
-                }
-            }, status=status.HTTP_200_OK)
+            #         WikiSearchHistory.objects.create(
+            #             search_query=search_query,
+            #             search_type=search_type,
+            #             result_count=len(search_results),
+            #             session_key=session_key,
+            #             search_longitude=user_longitude,
+            #             search_latitude=user_latitude
+            #         )
+            #     except Exception as e:
+            #         logger.warning(f"검색 기록 저장 실패: {e}")
+        
+
             
         except Exception as e:
             logger.error(f"위키 검색 중 오류: {e}")
@@ -190,6 +121,8 @@ class WikiViewSet(viewsets.GenericViewSet):
                 {'detail': f'검색 중 오류가 발생했습니다: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+        return Response({"google_place" : google_places}, status=200)
 
     @extend_schema(
         tags=["위키 정보 안내"],
