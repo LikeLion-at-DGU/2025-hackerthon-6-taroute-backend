@@ -218,7 +218,7 @@ class WikiReviewSerializer(serializers.ModelSerializer):
             'place_name',
             'gplace_id',
         ]
-        read_only_fields = ['place','ai_review']
+        read_only_fields = ['ai_review']
 
     def validate_review_content(self, value):
         """리뷰 내용 유효성 검사"""
@@ -233,33 +233,37 @@ class WikiReviewSerializer(serializers.ModelSerializer):
         return value.strip()
 
 
-class WikiReviewCreateSerializer(WikiReviewSerializer):
+class WikiReviewCreateSerializer(serializers.ModelSerializer):
     """위키 리뷰 생성 전용 시리얼라이저
     - 장소 ID를 따로 받기 위한 확장
     """
-    place_id = serializers.CharField(
-        write_only=True,
-        help_text="리뷰를 작성할 장소 ID"
-    )
+    place_id = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    class Meta:
+        model  = Review
+        fields = [
+            'id',
+            'place_id',
+            'review_content',
+            'review_score',
+            'review_image',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
 
-    class Meta(WikiReviewSerializer.Meta):
-        fields = WikiReviewSerializer.Meta.fields + ['place_id']
-        extra_kwargs = {
-            'place': {'read_only': True},  # 요청 시 받지 않도록 함!
-        }
-        
     def create(self, validated_data):
-        """리뷰 생성 시 place_id를 place 객체로 변환"""
-        place_id = validated_data.pop('place_id')
-        try:
-            place = Place.objects.get(gplace_id=place_id)
-            validated_data['place'] = place
-        except Place.DoesNotExist:
-            raise serializers.ValidationError(
-                f"ID {place_id}에 해당하는 장소를 찾을 수 없습니다."
-            )
+        gplace_id = validated_data.pop('place_id')
+
+        if not gplace_id:
+            raise serializers.ValidationError("place_id 는 필수입니다.")
+
+        wp, _ = WikiPlace.objects.get_or_create(
+            google_place_id=gplace_id
+        )
+
+        # wiki_place를 넣어서 Review 생성
+        review = Review.objects.create(wiki_place=wp, **validated_data)
+        return review
         
-        return super().create(validated_data)
 
 
 class WikiReportSerializer(serializers.ModelSerializer):

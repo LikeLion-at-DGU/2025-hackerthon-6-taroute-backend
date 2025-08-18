@@ -11,7 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
-from places.models import Place
+# from places.models import Place
 from .models import WikiPlace, Review, Report
 from .serializers import (
     WikiReviewSerializer,
@@ -36,52 +36,52 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
             return WikiReviewCreateSerializer
         return WikiReviewSerializer
 
-    @extend_schema(
-        tags=["위키 후기"],
-        parameters=[
-            OpenApiParameter(name="place_id", description="장소 ID", required=True, type=int),
-            OpenApiParameter(name="page", description="페이지 번호", required=False, type=int),
-            OpenApiParameter(name="size", description="페이지 크기", required=False, type=int),
-        ],
-        responses={200: WikiReviewSerializer(many=True)},
-        description="3.2.2 후기 작성 - GET: 특정 장소의 후기 목록 조회"
-    )
-    @action(detail=False, methods=["GET"])
-    def by_place(self, request):
-        """장소별 리뷰 조회"""
-        place_id = request.query_params.get('place_id')
-        if not place_id:
-            return Response(
-                {'detail': 'place_id는 필수 파라미터입니다.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    # @extend_schema(
+    #     tags=["위키 후기"],
+    #     parameters=[
+    #         OpenApiParameter(name="place_id", description="장소 ID", required=True, type=int),
+    #         OpenApiParameter(name="page", description="페이지 번호", required=False, type=int),
+    #         OpenApiParameter(name="size", description="페이지 크기", required=False, type=int),
+    #     ],
+    #     responses={200: WikiReviewSerializer(many=True)},
+    #     description="3.2.2 후기 작성 - GET: 특정 장소의 후기 목록 조회"
+    # )
+    # @action(detail=False, methods=["GET"])
+    # def by_place(self, request):
+    #     """장소별 리뷰 조회"""
+    #     place_id = request.query_params.get('place_id')
+    #     if not place_id:
+    #         return Response(
+    #             {'detail': 'place_id는 필수 파라미터입니다.'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
         
-        try:
-            place_id = int(place_id)
-            place = get_object_or_404(Place, id=place_id)
-        except ValueError:
-            return Response(
-                {'detail': 'place_id는 숫자여야 합니다.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    #     try:
+    #         place_id = int(place_id)
+    #         # place = get_object_or_404(Place, id=place_id)
+    #     except ValueError:
+    #         return Response(
+    #             {'detail': 'place_id는 숫자여야 합니다.'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
         
-        # 페이지네이션 처리
-        page = int(request.query_params.get('page', 1))
-        size = int(request.query_params.get('size', 10))
-        size = min(max(size, 1), 50)  # 1~50 범위 제한
+    #     # 페이지네이션 처리
+    #     page = int(request.query_params.get('page', 1))
+    #     size = int(request.query_params.get('size', 10))
+    #     size = min(max(size, 1), 50)  # 1~50 범위 제한
         
-        offset = (page - 1) * size
-        reviews = Review.objects.filter(place=place).order_by('-created_at')[offset:offset+size]
+    #     offset = (page - 1) * size
+    #     reviews = Review.objects.filter(place=place).order_by('-created_at')[offset:offset+size]
         
-        serializer = self.get_serializer(reviews, many=True)
-        return Response({
-            'results': serializer.data,
-            'meta': {
-                'page': page,
-                'size': size,
-                'total_count': Review.objects.filter(place=place).count()
-            }
-        }, status=status.HTTP_200_OK)
+    #     serializer = self.get_serializer(reviews, many=True)
+    #     return Response({
+    #         'results': serializer.data,
+    #         'meta': {
+    #             'page': page,
+    #             'size': size,
+    #             'total_count': Review.objects.filter(place=place).count()
+    #         }
+    #     }, status=status.HTTP_200_OK)
 
     @extend_schema(
         tags=["🔥위키페이지"],
@@ -96,33 +96,22 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
         
         try:
             with transaction.atomic():
-                # 리뷰 생성
                 review = serializer.save()
-                
-                # 해당 장소의 WikiPlace 리뷰 통계 업데이트
-                try:
-                    wiki_place = WikiPlace.objects.get(place=review.place)
-                    wiki_place.update_review_stats()
-                except WikiPlace.DoesNotExist:
-                    # WikiPlace가 없으면 생성 후 통계 업데이트
-                    wiki_place = WikiPlace.objects.create(
-                        place=review.place,
-                        shop_name=review.place.name
-                    )
-                    wiki_place.update_review_stats()
-                
-                # 응답용 시리얼라이저로 변환
-                response_serializer = WikiReviewSerializer(review)
-                return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-                
+                if not review.wiki_place_id:
+                    raise ValueError("wiki_place가 세팅되지 않았습니다.")
+
+                # 통계 갱신
+                review.wiki_place.update_review_stats()
+
+            # 응답용 시리얼라이저로 변환
+            return Response(WikiReviewSerializer(review).data, status=status.HTTP_201_CREATED)
+        
         except Exception as e:
             logger.error(f"리뷰 생성 중 오류: {e}")
             return Response(
-                {'detail': '리뷰 작성 중 오류가 발생했습니다.'},
+                {'detail': f'리뷰 작성 중 오류가 발생했습니다. {e}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-
 class WikiReportViewSet(viewsets.ModelViewSet):
     """위키 신고 뷰셋 - 3.2.3 후기 신고 기능"""
     queryset = Report.objects.all()

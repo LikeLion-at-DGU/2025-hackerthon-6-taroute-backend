@@ -80,3 +80,49 @@ def search_place(place_name, latitude, longitude, radius, rankPreference=None, p
         # 후기순정렬은 후기 많은 순으로!
     
     return google_place
+
+# 사진 URL 생성
+def build_photo_url(photo_name: str, max_width_px: int = 800) -> str:
+    return (
+        f"https://places.googleapis.com/v1/{photo_name}/media"
+        f"?key={settings.GOOGLE_API_KEY}&maxWidthPx={max_width_px}"
+    )
+
+# 프론트로부터 place_id를 받고 세부 데이터 응답
+def search_detail(place_id):
+    params = {
+        "languageCode": "ko",
+        "regionCode": "KR",
+        "fields": "id,displayName,formattedAddress,location,regularOpeningHours,photos",
+    }
+    r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=5)
+    r.raise_for_status()
+    p = r.json()
+
+    photos = p.get("photos", [])
+    place_photos = {
+        build_photo_url(p["name"], max_width_px=800)
+        for p in photos
+        if p.get("name")
+    }
+
+    running_time = p.get("regularOpeningHours", {})
+    if not running_time:
+        time = "영업시간 정보 없음"
+    else:
+        time = times.format_running(running_time)
+
+    search_details = {
+        "place_name" : p.get("displayName", {}).get("text"),
+        "location" : p.get("location"),
+        "place_photos" : place_photos,
+
+        # 영업정보
+        "address" : p.get("formattedAddress"),
+        "running_time" : time,
+        "phone_number" : p.get("nationalPhoneNumber"),   
+
+        "rating" : p.get("rating") #구글 별점 혹시하고 가져옴
+    }
+
+    return search_details

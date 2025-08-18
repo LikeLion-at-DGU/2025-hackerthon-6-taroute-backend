@@ -21,27 +21,27 @@ class WikiPlace(models.Model):
     - AI 요약, 기본 정보 등을 포함
     """
     # 기존 Place 모델과 일대일 관계 설정
-    place = models.OneToOneField(
-        Place, 
-        on_delete=models.CASCADE, 
-        primary_key=True,
-        #"기존 장소 모델과 연결"
-    )
+    # place = models.OneToOneField(
+    #     Place, 
+    #     on_delete=models.CASCADE, 
+    #     primary_key=True,
+    #     #"기존 장소 모델과 연결"
+    # )
     
     # 위키 전용 추가 필드들
     shop_name = models.CharField(
         max_length=100, 
         blank=True, 
         null=True,
-        #"상점명 (장소명과 다를 수 있음)"
+        #"🔥상점명 (장소명과 다를 수 있음)"
     )
     
-    shop_image = models.ImageField(
-        upload_to=wiki_image_upload_path, 
-        blank=True, 
-        null=True,
-        #"위키 전용 장소 대표 이미지"
-    )
+    # shop_image = models.ImageField(
+    #     upload_to=wiki_image_upload_path, 
+    #     blank=True, 
+    #     null=True,
+    #     #"위키 전용 장소 대표 이미지"
+    # )
     
     # AI 요약 정보
     ai_summation = models.TextField(
@@ -82,7 +82,7 @@ class WikiPlace(models.Model):
         max_length=100, 
         blank=True, 
         null=True,
-        #"구글 Places API에서 제공하는 장소 고유 ID"
+        #"🔥구글 Places API에서 제공하는 장소 고유 ID"
     )
     
     # 평점 정보 (캐시용)
@@ -90,23 +90,23 @@ class WikiPlace(models.Model):
         max_digits=3, 
         decimal_places=2, 
         default=0.00,
-        #"전체 리뷰의 평균 점수"
+        #"🔥전체 리뷰의 평균 점수"
     )
     
     total_review_count = models.IntegerField(
         default=0,
-        #"전체 리뷰 개수"
+        #"🔥전체 리뷰 개수"
     )
     
     # 위키 정보 생성/수정 시간
     created_at = models.DateTimeField(
         default=timezone.now,
-        #"위키 정보 최초 생성 시간"
+        #"🔥위키 정보 최초 생성 시간"
     )
     
     updated_at = models.DateTimeField(
         auto_now=True,
-        #"위키 정보 마지막 수정 시간"
+        #"🔥위키 정보 마지막 수정 시간"
     )
     
     # AI 요약 마지막 업데이트 시간
@@ -126,13 +126,13 @@ class WikiPlace(models.Model):
         ]
 
     def __str__(self):
-        return f"WikiPlace: {self.shop_name or self.place.name}"
+        return f"WikiPlace: {self.shop_name or self.google_place_id}"
 
     def update_review_stats(self):
         """리뷰 통계 업데이트 메서드
         - 평균 점수와 리뷰 개수를 재계산하여 캐시
         """
-        reviews = Review.objects.filter(place=self.place)
+        reviews = self.reviews.all()
         
         if reviews.exists():
             # 평균 점수 계산
@@ -218,12 +218,16 @@ class WikiSearchHistory(models.Model):
 
 class Review(models.Model):
     """리뷰 모델"""
-    place = models.ForeignKey(
-        Place,
-        on_delete=models.CASCADE,
-        related_name='reviews',
-        #"리뷰가 작성된 장소"
-    )
+
+    wiki_place = models.ForeignKey("WikiPlace",on_delete=models.CASCADE,null=False, related_name="reviews")
+    # place_id = models.CharField(max_length=100, null=True, blank=True)
+
+    # place = models.ForeignKey(
+    #     Place,
+    #     on_delete=models.CASCADE,
+    #     related_name='reviews',
+    #     #"리뷰가 작성된 장소"
+    # )
     
     review_content = models.TextField(
         #"리뷰 내용"

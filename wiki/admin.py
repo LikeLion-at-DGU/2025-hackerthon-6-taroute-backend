@@ -12,7 +12,7 @@ class WikiPlaceAdmin(admin.ModelAdmin):
     """WikiPlace 관리자 페이지 설정"""
     list_display = [
         'shop_name', 
-        'place',
+        # 'place',
         'average_review_score', 
         'total_review_count',
         'ai_summary_updated_at',
@@ -34,7 +34,7 @@ class WikiPlaceAdmin(admin.ModelAdmin):
     ]
     
     readonly_fields = [
-        'place',
+        # 'place',
         'average_review_score',
         'total_review_count', 
         'created_at',
