@@ -282,33 +282,31 @@ class WikiReviewCreateSerializer(serializers.ModelSerializer):
         return review
         
 
-
+# 신고 사유 선택지 정의
+REPORT_REASONS = [
+    ('spam', '스팸/광고'),
+    ('inappropriate', '부적절한 내용'),
+    ('false_info', '허위 정보'),
+    ('offensive', '욕설/비방'),
+    ('copyright', '저작권 침해'),
+    ('other', '기타'),
+]
 class WikiReportSerializer(serializers.ModelSerializer):
     """위키 신고 시리얼라이저
     - 3.2.3 후기 신고용
     """
-    # 신고 사유 선택지 정의
-    REPORT_REASONS = [
-        ('spam', '스팸/광고'),
-        ('inappropriate', '부적절한 내용'),
-        ('false_info', '허위 정보'),
-        ('offensive', '욕설/비방'),
-        ('copyright', '저작권 침해'),
-        ('other', '기타'),
-    ]
-    
+ 
     reason = serializers.ChoiceField(
         choices=REPORT_REASONS,
         help_text="신고 사유"
     )
     
-    report_title = serializers.CharField(
-        max_length=50,
-        help_text="신고 제목"
-    )
+    # report_title = serializers.CharField(
+    #     max_length=50,
+    #     help_text="신고 제목"
+    # )
     
     report_content = serializers.CharField(
-        source='report_reason',
         max_length=500,
         help_text="신고 상세 내용"
     )
@@ -319,13 +317,19 @@ class WikiReportSerializer(serializers.ModelSerializer):
         help_text="신고 시간"
     )
 
+    review_id = serializers.IntegerField(
+        source='review.id',
+        read_only=True,
+        help_text="신고할 리뷰 ID"
+    )
+
     class Meta:
         model = Report
         fields = [
             'id',
-            'review',
+            'review_id',
             'reason',
-            'report_title', 
+            # 'report_title', 
             'report_content',
             'created_at'
         ]

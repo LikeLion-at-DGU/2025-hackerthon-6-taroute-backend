@@ -215,7 +215,7 @@ class WikiSearchHistory(models.Model):
     def __str__(self):
         return f"검색: {self.search_query} ({self.created_at})"
 
-
+###############################################################################################
 class Review(models.Model):
     """리뷰 모델"""
 
@@ -267,7 +267,7 @@ class Review(models.Model):
     def __str__(self):
         return f"리뷰: {self.place.name} - {self.review_score}점"
 
-
+##################################################################################################
 class Report(models.Model):
     """신고 모델"""
 

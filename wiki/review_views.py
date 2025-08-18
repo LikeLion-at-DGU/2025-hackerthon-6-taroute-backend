@@ -166,13 +166,13 @@ class WikiReportViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         tags=["위키 신고"],
-        request=WikiReportCreateSerializer,
+        parameters=[WikiReportCreateSerializer],
         responses={201: WikiReportSerializer},
         description="3.2.3 후기 신고 - POST: 후기 신고 접수 (신고 사유 포함)"
     )
     def create(self, request, *args, **kwargs):
         """신고 생성 - reason, report_title, report_content 포함"""
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         
         try:
