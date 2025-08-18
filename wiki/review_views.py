@@ -112,6 +112,34 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
                 {'detail': f'리뷰 작성 중 오류가 발생했습니다. {e}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+        
+    @extend_schema(
+        tags=["🔥위키페이지"],
+        parameters=[OpenApiParameter(name="place_id", description="장소ID", required=True, type=str)],
+        summary="게시판 리뷰 좋아요 카운트"
+    )
+    @action(detail=True, methods=["GET"])
+    def click_liked(self, request, pk=None):
+        review = self.get_object()
+        review.like_num += 1
+        review.save(update_fields=["like_num"])
+        return Response({
+            "review_content": review.review_content,
+            "like_count": review.like_num
+        })
+
+    @extend_schema(
+        tags=["🔥위키페이지"],
+        summary="현재 핫한 게시판"
+    )
+    @action(methods=["GET"], detail=False)
+    def top7_liked(self, request):
+        top_post = self.get_queryset().order_by("-like_num")[:7]
+        top_post_serializer = WikiReviewSerializer(top_post, many=True)
+        return Response(top_post_serializer.data)
+
+
 class WikiReportViewSet(viewsets.ModelViewSet):
     """위키 신고 뷰셋 - 3.2.3 후기 신고 기능"""
     queryset = Report.objects.all()

@@ -119,9 +119,6 @@ class WikiViewSet(viewsets.GenericViewSet):
         """장소 상세 정보 제공 - OpenAI API 활용 AI 요약"""
         # 요청 파라미터 검증
         place_id = request.query_params.get('place_id')
-        # location_name = request.query_params.get('location_name', '')
-        # longitude = request.query_params.get('longitude')
-        # latitude = request.query_params.get('latitude')
         
         if not place_id:
             return Response(
@@ -155,17 +152,23 @@ class WikiViewSet(viewsets.GenericViewSet):
                 print("조회된 wikiPlace 객체 없음")
 
             # 평점 정보 계산
+            reviews = Review.objects.filter(wiki_place=wiki_place)
             review_score = 0.00
             if wiki_place:
                 review_score = wiki_place.average_review_score
             else:
                 # 실시간 평점 계산
-                reviews = Review.objects.filter(place=wiki_place)
                 if reviews.exists():
                     avg_score = reviews.aggregate(avg=Avg('review_score'))['avg']
                     review_score = float(avg_score) if avg_score else 0.00
                 else:
                     review_score = search_details.get("rating") #없다면 구글 평점
+
+            # 게시판 리뷰 조회 (최신순/추천순)
+            reviews_content = wiki_place.reviews.order_by('-created_at')
+            reviews_data = WikiReviewSerializer(
+                reviews_content, many=True, context={'request': request}
+            ).data #직렬화
 
         except Exception as e:
             logger.error(f"위키 상세 정보 조회 중 오류: {e}")
@@ -185,19 +188,16 @@ class WikiViewSet(viewsets.GenericViewSet):
                 "review_score":review_score, # 위키별점
                 
                 # AI요약
+                # 게시판
+                "reviews_content":reviews_data
             }, 
             status=200
         )
+    
+    
+
 
         
-        # try:
-        #     longitude = float(longitude)
-        #     latitude = float(latitude)
-        # except ValueError:
-        #     return Response(
-        #         {'detail': '경도와 위도는 숫자여야 합니다.'},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
         
         # try:
         #     # 기존 Place 또는 WikiPlace 찾기

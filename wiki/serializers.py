@@ -45,6 +45,14 @@ class WikiSearchQuerySerializer(serializers.Serializer):
         max_value=20000,
         help_text="검색 반경(미터), 기본 20km"
     )
+
+    rankPreference = serializers.ChoiceField(
+        choices=["RELEVANCE", "DISTANCE"], 
+        help_text="'RELEVANCE'=검색 관련성, 'DISTANCE'=거리순",
+        default="RELEVANCE", 
+        required=False, 
+        allow_null=True
+    )
     
     # page = serializers.IntegerField(
     #     default=1,
@@ -202,8 +210,10 @@ class WikiReviewSerializer(serializers.ModelSerializer):
         help_text="리뷰 수정 시간"
     )
 
-    place_name = serializers.CharField(source='place.name', read_only=True)
-    gplace_id   = serializers.CharField(source='place.gplace_id', read_only=True)
+    place_name = serializers.CharField(read_only=True)
+    gplace_id   = serializers.CharField(read_only=True)
+    like_num = serializers.IntegerField(default=0)
+
 
     class Meta:
         model = Review
@@ -217,8 +227,15 @@ class WikiReviewSerializer(serializers.ModelSerializer):
             'updated_at',
             'place_name',
             'gplace_id',
+            'like_num',
         ]
         read_only_fields = ['ai_review']
+    
+    def to_representation(self, instance):
+        representation  = super().to_representation(instance)
+        representation ['place_name'] = instance.wiki_place.shop_name
+        representation ['gplace_id'] = instance.wiki_place.google_place_id
+        return representation
 
     def validate_review_content(self, value):
         """리뷰 내용 유효성 검사"""

@@ -4,6 +4,7 @@ import requests
 from core import times
 from core.distance import calculate_distance
 from places.models import PopularKeyward
+from wiki.models import WikiPlace
 
 BASE = "https://places.googleapis.com/v1/places"
 
@@ -38,13 +39,20 @@ def search_place(place_name, latitude, longitude, radius, rankPreference=None, p
     google_place = []
     
     for p in places[:10]:
-        #[인기순정렬] 검색한 장소의 id가 DB에 있을 경우 인기 카운트 횟수를 세서 반환
+        
         p_id = ""
-        click_num = 0
+        click_num = 0 #[인기순정렬] 검색한 장소의 id가 DB에 있을 경우 인기 카운트 횟수를 세서 반환
         try:
             p_id = PopularKeyward.objects.get(place_id = p.get("id"))
             click_num = p_id.click_num if p_id else 0
         except PopularKeyward.DoesNotExist:
+            pass
+
+        review_count = 0 #[후기순정렬] 검색한 장소의 id, 리뷰 개수 반환
+        try:
+            r_id = WikiPlace.objects.get(google_place_id = p.get("id"))
+            review_count = r_id.total_review_count if p_id else 0
+        except WikiPlace.DoesNotExist:
             pass
         
         running_time = p.get("regularOpeningHours", {})
@@ -74,6 +82,7 @@ def search_place(place_name, latitude, longitude, radius, rankPreference=None, p
             "location" : p.get("location"),
             "rating" : p.get("rating"), #구글 별점 혹시하고 가져옴
             "click_num": click_num, #[인기순정렬]
+            "review_count": review_count, #[후기순정렬]
             "running_time" : time,
             "distance_text" : distance_text
         })
