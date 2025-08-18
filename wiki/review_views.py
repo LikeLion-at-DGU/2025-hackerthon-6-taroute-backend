@@ -152,9 +152,9 @@ class WikiReportViewSet(viewsets.ModelViewSet):
         return WikiReportSerializer
 
     @extend_schema(
-        tags=["위키 신고"],
+        tags=["🔥위키페이지"],
         responses={200: WikiReportSerializer(many=True)},
-        description="3.2.3 후기 신고 - GET: 신고 목록 조회 (관리자용)"
+        summary="3.2.3 후기 신고 - GET: 신고 목록 조회 (관리자용)"
     )
     def list(self, request, *args, **kwargs):
         """신고 목록 조회 (관리자 전용)"""
@@ -165,10 +165,10 @@ class WikiReportViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
-        tags=["위키 신고"],
+        tags=["🔥위키페이지"],
         parameters=[WikiReportCreateSerializer],
         responses={201: WikiReportSerializer},
-        description="3.2.3 후기 신고 - POST: 후기 신고 접수 (신고 사유 포함)"
+        summary="3.2.3 후기 신고 - POST: 후기 신고 접수 (신고 사유 포함)"
     )
     def create(self, request, *args, **kwargs):
         """신고 생성 - reason, report_title, report_content 포함"""
