@@ -85,7 +85,7 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         tags=["🔥위키페이지"],
-        request=WikiReviewCreateSerializer,
+        request={'multipart/form-data': WikiReviewCreateSerializer},
         responses={201: WikiReviewSerializer},
         summary="3.2.2 후기 작성 - POST: 새로운 후기 작성 (약속, 별점, 내용)"
     )
@@ -136,6 +136,16 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
     @action(methods=["GET"], detail=False)
     def top7_liked(self, request):
         top_post = self.get_queryset().order_by("-like_num")[:7]
+        top_post_serializer = WikiReviewSerializer(top_post, many=True)
+        return Response(top_post_serializer.data)
+    
+    @extend_schema(
+        tags=["🔥위키페이지"],
+        summary="최근 업데이트된 위키"
+    )
+    @action(methods=["GET"], detail=False)
+    def top5_posted(self, request):
+        top_post = self.get_queryset().order_by("-created_at")[:5]
         top_post_serializer = WikiReviewSerializer(top_post, many=True)
         return Response(top_post_serializer.data)
 

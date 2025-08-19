@@ -255,6 +255,8 @@ class WikiReviewCreateSerializer(serializers.ModelSerializer):
     - 장소 ID를 따로 받기 위한 확장
     """
     place_id = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
+    review_image = serializers.ImageField(required=False, allow_null=True, use_url=True)
     class Meta:
         model  = Review
         fields = [

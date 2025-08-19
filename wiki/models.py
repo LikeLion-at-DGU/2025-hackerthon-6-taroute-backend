@@ -12,7 +12,7 @@ def wiki_image_upload_path(instance, filename):
     """위키 이미지 업로드 경로 설정 함수
     - 장소별로 폴더를 나누어 이미지 관리
     """
-    return f"wiki/{instance.place.id}/{filename}"
+    return f"wiki/{instance.wiki_place.google_place_id}/{filename}"
 
 
 class WikiPlace(models.Model):
@@ -242,7 +242,7 @@ class Review(models.Model):
     )
 
     review_image = models.ImageField(
-        upload_to="reviews/",
+        upload_to=wiki_image_upload_path,
         blank=True,
         null=True,
         # "리뷰 이미지"
