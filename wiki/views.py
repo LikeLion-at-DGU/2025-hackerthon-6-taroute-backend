@@ -45,7 +45,7 @@ class WikiViewSet(viewsets.GenericViewSet):
         tags=["🔥위키페이지"],
         parameters=[WikiSearchQuerySerializer],
         responses={200: WikiPlaceSearchResultSerializer(many=True)},
-        summary="3.1 위키 검색 - 장소 및 지역 검색 가능 → 핫한 장소, 지역 안내"
+        summary="3.3 위키 장소 검색"
     )
     @action(detail=False, methods=["GET"])
     def search(self, request):
@@ -97,7 +97,7 @@ class WikiViewSet(viewsets.GenericViewSet):
             OpenApiParameter(name="place_id", description="장소ID", required=True, type=str)
         ],
         responses={200: WikiPlaceDetailSerializer},
-        summary="3.2.1 결과 화면 - AI 요약 + 기본 정보 + 후기"
+        summary="3.4 장소 세부정보 - AI 요약 + 기본 정보 + 후기"
     )
     @action(detail=False, methods=["GET"], url_path='detail')
     def place_detail(self, request):
@@ -200,59 +200,59 @@ class WikiViewSet(viewsets.GenericViewSet):
         
         )
     
-    def get_popular_search_keywords(limit: int = 10) -> List[Dict]:
-        """인기 검색 키워드 조회
+    # def get_popular_search_keywords(limit: int = 10) -> List[Dict]:
+    #     """인기 검색 키워드 조회
         
-        Args:
-            limit: 반환할 키워드 개수
+    #     Args:
+    #         limit: 반환할 키워드 개수
         
-        Returns:
-            인기 검색어 리스트 [{"keyword": "키워드", "count": 횟수}, ...]
-        """
-        from django.db.models import Count
-        from .models import WikiSearchHistory
+    #     Returns:
+    #         인기 검색어 리스트 [{"keyword": "키워드", "count": 횟수}, ...]
+    #     """
+    #     from django.db.models import Count
+    #     from .models import WikiSearchHistory
         
-        # 최근 7일간의 검색 기록에서 인기 키워드 추출
-        from datetime import timedelta
-        recent_date = timezone.now() - timedelta(days=7)
+    #     # 최근 7일간의 검색 기록에서 인기 키워드 추출
+    #     from datetime import timedelta
+    #     recent_date = timezone.now() - timedelta(days=7)
         
-        popular_keywords = (
-            WikiSearchHistory.objects
-            .filter(created_at__gte=recent_date)
-            .values('search_query')
-            .annotate(search_count=Count('search_query'))
-            .order_by('-search_count')[:limit]
-        )
+    #     popular_keywords = (
+    #         WikiSearchHistory.objects
+    #         .filter(created_at__gte=recent_date)
+    #         .values('search_query')
+    #         .annotate(search_count=Count('search_query'))
+    #         .order_by('-search_count')[:limit]
+    #     )
         
-        return [
-            {
-                "keyword": item['search_query'],
-                "count": item['search_count']
-            }
-            for item in popular_keywords
-        ]
+    #     return [
+    #         {
+    #             "keyword": item['search_query'],
+    #             "count": item['search_count']
+    #         }
+    #         for item in popular_keywords
+    #     ]
 
-    @extend_schema(
-        tags=["위키 기타"],
-        parameters=[
-            OpenApiParameter(name="limit", description="반환할 키워드 개수", required=False, type=int),
-        ],
-        responses={200: PopularKeywordSerializer(many=True)},
-        description="인기 검색어 목록 조회"
-    )
-    @action(detail=False, methods=["GET"])
-    def popular_keywords(self, request):
-        """인기 검색어 목록 반환"""
-        limit = int(request.query_params.get('limit', 10))
-        limit = min(max(limit, 1), 50)  # 1~50 범위로 제한
+    # @extend_schema(
+    #     tags=["위키 기타"],
+    #     parameters=[
+    #         OpenApiParameter(name="limit", description="반환할 키워드 개수", required=False, type=int),
+    #     ],
+    #     responses={200: PopularKeywordSerializer(many=True)},
+    #     description="인기 검색어 목록 조회"
+    # )
+    # @action(detail=False, methods=["GET"])
+    # def popular_keywords(self, request):
+    #     """인기 검색어 목록 반환"""
+    #     limit = int(request.query_params.get('limit', 10))
+    #     limit = min(max(limit, 1), 50)  # 1~50 범위로 제한
         
-        try:
-            keywords = get_popular_search_keywords(limit=limit)
-            serializer = PopularKeywordSerializer(keywords, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e:
-            logger.error(f"인기 검색어 조회 중 오류: {e}")
-            return Response(
-                {'detail': '인기 검색어 조회 중 오류가 발생했습니다.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+    #     try:
+    #         keywords = get_popular_search_keywords(limit=limit)
+    #         serializer = PopularKeywordSerializer(keywords, many=True)
+    #         return Response(serializer.data, status=status.HTTP_200_OK)
+    #     except Exception as e:
+    #         logger.error(f"인기 검색어 조회 중 오류: {e}")
+    #         return Response(
+    #             {'detail': '인기 검색어 조회 중 오류가 발생했습니다.'},
+    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+    #         )

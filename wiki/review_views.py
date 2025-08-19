@@ -6,7 +6,7 @@ Wiki 리뷰 및 신고 뷰
 
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
@@ -29,7 +29,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class WikiReviewViewSet(viewsets.ModelViewSet):
+class WikiReviewViewSet(viewsets.GenericViewSet):
     """위키 리뷰 뷰셋 - 3.2.2 후기 작성 기능"""
     queryset = Review.objects.all()
     serializer_class = WikiReviewSerializer
@@ -91,7 +91,7 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
         tags=["🔥위키페이지"],
         request={'multipart/form-data': WikiReviewCreateSerializer},
         responses={201: WikiReviewSerializer},
-        summary="3.2.2 후기 작성 - POST: 새로운 후기 작성 (약속, 별점, 내용)"
+        summary="3.5 후기 작성 - POST: 새로운 후기 작성 (약속, 별점, 내용)"
     )
     def create(self, request, *args, **kwargs):
         """리뷰 생성 - 약속(내용), 별점, 이미지 포함"""
@@ -103,6 +103,9 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
                 review = serializer.save()
                 if not review.wiki_place_id:
                     raise ValueError("wiki_place가 세팅되지 않았습니다.")
+
+                if review.review_score < 0 or review.review_score > 5:
+                    raise ValueError("wiki 리뷰 점수는 0보다는 크고, 5보다는 작아야 합니다.")
 
                 # 통계 갱신
                 review.wiki_place.update_review_stats()
@@ -121,7 +124,7 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
     @extend_schema(
         tags=["🔥위키페이지"],
         parameters=[OpenApiParameter(name="place_id", description="장소ID", required=True, type=str)],
-        summary="게시판 리뷰 좋아요 카운트"
+        summary="3.4.1 게시판 리뷰 좋아요 카운트"
     )
     @action(detail=True, methods=["GET"])
     def click_liked(self, request, pk=None):
@@ -135,13 +138,23 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         tags=["🔥위키페이지"],
-        summary="현재 핫한 게시판"
+        summary="3.2 현재 핫한 게시판"
     )
     @action(methods=["GET"], detail=False)
     def top7_liked(self, request):
         top_wiki = self.get_queryset().order_by("-like_num")[:7]
         top_wiki_serializer = WikiReviewSerializer(top_wiki, many=True)
-        return Response(top_wiki_serializer.data)
+
+        top_data = []
+        for top in top_wiki_serializer.data:
+            top_data.append({
+                    'id': top.get('id'),
+                    'place_name': top.get('place_name'),
+                    'gplace_id': top.get('gplace_id'),
+                    'review_content': top.get('review_content'),
+                    'like_num': top.get('like_num')
+            })
+        return Response({"top_data" : top_data})
     
     @extend_schema(
         tags=["🔥위키페이지"],
@@ -191,7 +204,7 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
         return Response({"recent_data" : recent_data})
 
 
-class WikiReportViewSet(viewsets.ModelViewSet):
+class WikiReportViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     """위키 신고 뷰셋 - 3.2.3 후기 신고 기능"""
     queryset = Report.objects.all()
     serializer_class = WikiReportSerializer
@@ -205,7 +218,7 @@ class WikiReportViewSet(viewsets.ModelViewSet):
     @extend_schema(
         tags=["🔥위키페이지"],
         responses={200: WikiReportSerializer(many=True)},
-        summary="3.2.3 후기 신고 - GET: 신고 목록 조회 (관리자용)"
+        summary="3.6.1 후기 신고 - GET: 신고 목록 조회 (관리자용)"
     )
     def list(self, request, *args, **kwargs):
         """신고 목록 조회 (관리자 전용)"""
@@ -219,7 +232,7 @@ class WikiReportViewSet(viewsets.ModelViewSet):
         tags=["🔥위키페이지"],
         parameters=[WikiReportCreateSerializer],
         responses={201: WikiReportSerializer},
-        summary="3.2.3 후기 신고 - POST: 후기 신고 접수 (신고 사유 포함)"
+        summary="3.6 후기 신고 - POST: 후기 신고 접수 (신고 사유 포함)"
     )
     def create(self, request, *args, **kwargs):
         """신고 생성 - reason, report_title, report_content 포함"""
