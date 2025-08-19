@@ -21,16 +21,14 @@ from .serializers import (
     WikiPlaceSearchResultSerializer, 
     WikiPlaceDetailSerializer,
     WikiReviewSerializer,
-    # WikiReviewCreateSerializer,
-    # WikiReportSerializer,
-    # WikiReportCreateSerializer,
     PopularKeywordSerializer
 )
-from .services import (
-    search_places_by_keyword,
-    parse_kakao_place_data,
-    get_popular_search_keywords
-)
+from typing import List, Dict, Optional, Tuple
+# from .services import (
+#     # search_places_by_keyword,
+#     # parse_kakao_place_data,
+#     get_popular_search_keywords
+# )
 
 from .service import google, openai
 
@@ -61,20 +59,7 @@ class WikiViewSet(viewsets.GenericViewSet):
         try:
             # 구글 API 호출
             google_places = google.search_place(**search_data)
-            
-                
-            #     # 기존 Place 모델에서 해당 장소 찾기 (좌표 기반)
-            #     existing_place = None
-            #     try:
-            #         # 좌표가 비슷한 기존 장소 찾기 (오차 허용 범위: 0.001도 약 100m)
-            #         existing_place = Place.objects.filter(
-            #             longitude__range=(place_data['longitude'] - 0.001, place_data['longitude'] + 0.001),
-            #             latitude__range=(place_data['latitude'] - 0.001, place_data['latitude'] + 0.001)
-            #         ).first()
-            #     except Exception as e:
-            #         logger.warning(f"기존 장소 검색 중 오류: {e}")
-                
-            
+                        
             # # 검색 기록 저장 (세션 키가 있는 경우)
             # if session_key:
             #     try:
@@ -204,47 +189,49 @@ class WikiViewSet(viewsets.GenericViewSet):
                 "reviews_content":reviews_data
             }, 
             status=200
-            
 
-        # ID에 해당하는 위키 모델의 댓글에 접근 => AI 요약 API 호출
-        # reviews = Review.objects.filter(wiki_place=wiki_place).order_by('-created_at')[:10]
-        
-        
         # AI 요약 생성 (아직 없거나 오래된 경우)
         # should_generate_ai_summary = (
         #     not wiki_place.ai_summation or
         #     not wiki_place.ai_summary_updated_at or
         #     (timezone.now() - wiki_place.ai_summary_updated_at).days > 30
         # )
-        
-        # if should_generate_ai_summary:
-        # try:
-        
-            # ai_summary, ai_metadata = openai.generate_ai_summary(
-            #     place_name=shop_name,
-            #     reviews=review_texts,
-            #     basic_info=wiki_place.basic_information
-            # )
-            
-            # # AI 요약 정보 업데이트
-            # wiki_place.ai_summation = ai_summary
-            # wiki_place.ai_summation_info = ai_metadata
-            # wiki_place.ai_summary_updated_at = timezone.now()
-            # wiki_place.save(update_fields=[
-            #     'ai_summation', 
-            #     'ai_summation_info', 
-            #     'ai_summary_updated_at'
-            # ])
-            
-            # except Exception as e:
-            #     logger.warning(f"AI 요약 생성 실패: {e}")
-        
-        
-
-        
+    
         
         )
     
+    def get_popular_search_keywords(limit: int = 10) -> List[Dict]:
+        """인기 검색 키워드 조회
+        
+        Args:
+            limit: 반환할 키워드 개수
+        
+        Returns:
+            인기 검색어 리스트 [{"keyword": "키워드", "count": 횟수}, ...]
+        """
+        from django.db.models import Count
+        from .models import WikiSearchHistory
+        
+        # 최근 7일간의 검색 기록에서 인기 키워드 추출
+        from datetime import timedelta
+        recent_date = timezone.now() - timedelta(days=7)
+        
+        popular_keywords = (
+            WikiSearchHistory.objects
+            .filter(created_at__gte=recent_date)
+            .values('search_query')
+            .annotate(search_count=Count('search_query'))
+            .order_by('-search_count')[:limit]
+        )
+        
+        return [
+            {
+                "keyword": item['search_query'],
+                "count": item['search_count']
+            }
+            for item in popular_keywords
+        ]
+
     @extend_schema(
         tags=["위키 기타"],
         parameters=[
@@ -269,92 +256,3 @@ class WikiViewSet(viewsets.GenericViewSet):
                 {'detail': '인기 검색어 조회 중 오류가 발생했습니다.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-
-        
-        
-        # try:
-        #     # 기존 Place 또는 WikiPlace 찾기
-        #     place = None
-        #     wiki_place = None
-            
-        #     # 좌표 기반으로 기존 장소 찾기
-        #     place = Place.objects.filter(
-        #         longitude__range=(longitude - 0.001, longitude + 0.001),
-        #         latitude__range=(latitude - 0.001, latitude + 0.001)
-        #     ).first()
-            
-        #     # WikiPlace 찾기 또는 생성
-        #     if place:
-        #         wiki_place, created = WikiPlace.objects.get_or_create(
-        #             place=place,
-        #             defaults={
-        #                 'shop_name': place_name,
-        #                 'kakao_place_id': '',  # 검색에서 온 경우 별도 업데이트 필요
-        #             }
-        #         )
-        #     else:
-        #         # 새 Place 생성
-        #         with transaction.atomic():
-        #             place = Place.objects.create(
-        #                 name=place_name,
-        #                 address=location_name,
-        #                 dong='',  # 별도 API 호출로 채울 수 있음
-        #                 longitude=longitude,
-        #                 latitude=latitude,
-        #                 number='',
-        #                 running_time=''
-        #             )
-                    
-        #             wiki_place = WikiPlace.objects.create(
-        #                 place=place,
-        #                 shop_name=place_name
-        #             )
-            
-        # # 기본 정보 구성 (없는 경우)
-        # if not wiki_place.basic_information:
-        #     basic_info_parts = []
-        #     if place.running_time:
-        #         basic_info_parts.append(f"운영시간: {place.running_time}")
-        #     if place.number:
-        #         basic_info_parts.append(f"전화번호: {place.number}")
-        #     if place.address:
-        #         basic_info_parts.append(f"주소: {place.address}")
-            
-        #     wiki_place.basic_information = '\n'.join(basic_info_parts) or "기본 정보가 없습니다."
-        #     wiki_place.basic_information_info = {
-        #         'generated_at': timezone.now().isoformat(),
-        #         'source': 'internal_data'
-        #     }
-        #     wiki_place.save(update_fields=['basic_information', 'basic_information_info'])
-        
-        # # 리뷰 통계 업데이트
-        # wiki_place.update_review_stats()
-        
-        # # 리뷰 데이터 직렬화
-        # review_data = []
-        # for review in reviews:
-        #     review_data.append({
-        #         'id': review.id,
-        #         'content': review.review_content,
-        #         'score': float(review.review_score),
-        #         'created_at': review.created_at.isoformat(),
-        #         'ai_review': review.ai_review,
-        #     })
-
-        # 응답 데이터 구성
-        # ai_summary = {
-        #     'ai_summation': wiki_place.ai_summation,
-        #     'ai_summation_info': wiki_place.ai_summation_info,
-        #     'basic_information': wiki_place.basic_information,
-        #     'basic_information_info': wiki_place.basic_information_info,
-        # }
-            
-        
-            
-        #     serializer = WikiPlaceDetailSerializer(response_data)
-        #     return Response(serializer.data, status=status.HTTP_200_OK)
-            
-        
-
-    

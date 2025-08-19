@@ -11,6 +11,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
+from datetime import datetime, timedelta
+from dateutil import parser
+from django.utils import timezone
+
 # from places.models import Place
 from .models import WikiPlace, Review, Report
 from .serializers import (
@@ -135,19 +139,56 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
     )
     @action(methods=["GET"], detail=False)
     def top7_liked(self, request):
-        top_post = self.get_queryset().order_by("-like_num")[:7]
-        top_post_serializer = WikiReviewSerializer(top_post, many=True)
-        return Response(top_post_serializer.data)
+        top_wiki = self.get_queryset().order_by("-like_num")[:7]
+        top_wiki_serializer = WikiReviewSerializer(top_wiki, many=True)
+        return Response(top_wiki_serializer.data)
     
     @extend_schema(
         tags=["🔥위키페이지"],
-        summary="최근 업데이트된 위키"
+        summary="3.1 최근 업데이트된 위키"
     )
     @action(methods=["GET"], detail=False)
-    def top5_posted(self, request):
-        top_post = self.get_queryset().order_by("-created_at")[:5]
-        top_post_serializer = WikiReviewSerializer(top_post, many=True)
-        return Response(top_post_serializer.data)
+    def recent5_wiki(self, request):
+        recent_wiki = self.get_queryset().order_by("-created_at")[:5]
+        recent_wiki_serializer = WikiReviewSerializer(recent_wiki, many=True)
+
+        recent_data = []
+
+        for re in recent_wiki_serializer.data:
+            
+            # 리뷰 몇 분전 작성됐는지
+            now = timezone.now()
+            created= re.get('created_at')
+            created_at = parser.isoparse(created)
+            time_diff = now - created_at
+
+            # 시간 차이 계산
+            minutes = int(time_diff.total_seconds() // 60)
+            hours = int(time_diff.total_seconds() // 3600)
+            days = time_diff.days
+
+            if days > 7:
+                # 7일 이상이면 'YYYY년 MM월 DD일' 형식으로 표시
+                # created_at을 로컬 타임으로 변환하여 포맷팅하는 것이 사용자에게 더 익숙합니다.
+                time_text = timezone.localtime(created_at).strftime("%Y년 %m월 %d일")
+            elif days > 0:
+                time_text = f"{days}일 전"
+            elif hours > 0:
+                time_text = f"{hours}시간 전"
+            elif minutes > 0:
+                time_text = f"{minutes}분 전"
+            else:
+                time_text = "방금 전"
+
+            recent_data.append({
+                    'place_name': re.get('place_name'),
+                    'review_content': re.get('review_content'),
+                    'created_at': re.get('created_at'),
+                    'time_text' : time_text
+            })
+
+        
+        return Response({"recent_data" : recent_data})
 
 
 class WikiReportViewSet(viewsets.ModelViewSet):
