@@ -14,8 +14,11 @@ from .review_views import WikiReviewViewSet, WikiReportViewSet
 app_name = "wiki"
 
 # 메인 위키 라우터 (검색, 상세정보)
-wiki_router = routers.SimpleRouter(trailing_slash=False)
-wiki_router.register("wiki", WikiViewSet, basename="wiki")
+default_router = routers.SimpleRouter(trailing_slash=False)
+default_router.register("", WikiViewSet, basename="wiki")
+
+# wiki_router = routers.SimpleRouter(trailing_slash=False)
+# wiki_router.register("wiki", WikiViewSet, basename="wiki")
 
 # 리뷰 라우터
 review_router = routers.SimpleRouter(trailing_slash=False)
@@ -30,7 +33,7 @@ urlpatterns = [
     # GET /wiki/search - 3.1 위키 검색
     # GET /wiki/detail - 3.2.1 결과 화면 (정보 안내)  
     # GET /wiki/popular_keywords - 인기 검색어
-    path("", include(wiki_router.urls)),
+    path("", include(default_router.urls)),
     
     # 리뷰 기능
     # GET /reviews/by_place - 3.2.2 후기 조회

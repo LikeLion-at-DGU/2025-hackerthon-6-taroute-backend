@@ -11,7 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
-from places.models import Place
+# from places.models import Place
 from .models import WikiPlace, Review, Report
 from .serializers import (
     WikiReviewSerializer,
@@ -36,58 +36,58 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
             return WikiReviewCreateSerializer
         return WikiReviewSerializer
 
-    @extend_schema(
-        tags=["위키 후기"],
-        parameters=[
-            OpenApiParameter(name="place_id", description="장소 ID", required=True, type=int),
-            OpenApiParameter(name="page", description="페이지 번호", required=False, type=int),
-            OpenApiParameter(name="size", description="페이지 크기", required=False, type=int),
-        ],
-        responses={200: WikiReviewSerializer(many=True)},
-        description="3.2.2 후기 작성 - GET: 특정 장소의 후기 목록 조회"
-    )
-    @action(detail=False, methods=["GET"])
-    def by_place(self, request):
-        """장소별 리뷰 조회"""
-        place_id = request.query_params.get('place_id')
-        if not place_id:
-            return Response(
-                {'detail': 'place_id는 필수 파라미터입니다.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    # @extend_schema(
+    #     tags=["위키 후기"],
+    #     parameters=[
+    #         OpenApiParameter(name="place_id", description="장소 ID", required=True, type=int),
+    #         OpenApiParameter(name="page", description="페이지 번호", required=False, type=int),
+    #         OpenApiParameter(name="size", description="페이지 크기", required=False, type=int),
+    #     ],
+    #     responses={200: WikiReviewSerializer(many=True)},
+    #     description="3.2.2 후기 작성 - GET: 특정 장소의 후기 목록 조회"
+    # )
+    # @action(detail=False, methods=["GET"])
+    # def by_place(self, request):
+    #     """장소별 리뷰 조회"""
+    #     place_id = request.query_params.get('place_id')
+    #     if not place_id:
+    #         return Response(
+    #             {'detail': 'place_id는 필수 파라미터입니다.'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
         
-        try:
-            place_id = int(place_id)
-            place = get_object_or_404(Place, id=place_id)
-        except ValueError:
-            return Response(
-                {'detail': 'place_id는 숫자여야 합니다.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    #     try:
+    #         place_id = int(place_id)
+    #         # place = get_object_or_404(Place, id=place_id)
+    #     except ValueError:
+    #         return Response(
+    #             {'detail': 'place_id는 숫자여야 합니다.'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
         
-        # 페이지네이션 처리
-        page = int(request.query_params.get('page', 1))
-        size = int(request.query_params.get('size', 10))
-        size = min(max(size, 1), 50)  # 1~50 범위 제한
+    #     # 페이지네이션 처리
+    #     page = int(request.query_params.get('page', 1))
+    #     size = int(request.query_params.get('size', 10))
+    #     size = min(max(size, 1), 50)  # 1~50 범위 제한
         
-        offset = (page - 1) * size
-        reviews = Review.objects.filter(place=place).order_by('-created_at')[offset:offset+size]
+    #     offset = (page - 1) * size
+    #     reviews = Review.objects.filter(place=place).order_by('-created_at')[offset:offset+size]
         
-        serializer = self.get_serializer(reviews, many=True)
-        return Response({
-            'results': serializer.data,
-            'meta': {
-                'page': page,
-                'size': size,
-                'total_count': Review.objects.filter(place=place).count()
-            }
-        }, status=status.HTTP_200_OK)
+    #     serializer = self.get_serializer(reviews, many=True)
+    #     return Response({
+    #         'results': serializer.data,
+    #         'meta': {
+    #             'page': page,
+    #             'size': size,
+    #             'total_count': Review.objects.filter(place=place).count()
+    #         }
+    #     }, status=status.HTTP_200_OK)
 
     @extend_schema(
-        tags=["위키 후기"],
-        request=WikiReviewCreateSerializer,
+        tags=["🔥위키페이지"],
+        request={'multipart/form-data': WikiReviewCreateSerializer},
         responses={201: WikiReviewSerializer},
-        description="3.2.2 후기 작성 - POST: 새로운 후기 작성 (약속, 별점, 내용)"
+        summary="3.2.2 후기 작성 - POST: 새로운 후기 작성 (약속, 별점, 내용)"
     )
     def create(self, request, *args, **kwargs):
         """리뷰 생성 - 약속(내용), 별점, 이미지 포함"""
@@ -96,31 +96,58 @@ class WikiReviewViewSet(viewsets.ModelViewSet):
         
         try:
             with transaction.atomic():
-                # 리뷰 생성
                 review = serializer.save()
-                
-                # 해당 장소의 WikiPlace 리뷰 통계 업데이트
-                try:
-                    wiki_place = WikiPlace.objects.get(place=review.place)
-                    wiki_place.update_review_stats()
-                except WikiPlace.DoesNotExist:
-                    # WikiPlace가 없으면 생성 후 통계 업데이트
-                    wiki_place = WikiPlace.objects.create(
-                        place=review.place,
-                        shop_name=review.place.name
-                    )
-                    wiki_place.update_review_stats()
-                
-                # 응답용 시리얼라이저로 변환
-                response_serializer = WikiReviewSerializer(review)
-                return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-                
+                if not review.wiki_place_id:
+                    raise ValueError("wiki_place가 세팅되지 않았습니다.")
+
+                # 통계 갱신
+                review.wiki_place.update_review_stats()
+
+            # 응답용 시리얼라이저로 변환
+            return Response(WikiReviewSerializer(review).data, status=status.HTTP_201_CREATED)
+        
         except Exception as e:
             logger.error(f"리뷰 생성 중 오류: {e}")
             return Response(
-                {'detail': '리뷰 작성 중 오류가 발생했습니다.'},
+                {'detail': f'리뷰 작성 중 오류가 발생했습니다. {e}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+        
+    @extend_schema(
+        tags=["🔥위키페이지"],
+        parameters=[OpenApiParameter(name="place_id", description="장소ID", required=True, type=str)],
+        summary="게시판 리뷰 좋아요 카운트"
+    )
+    @action(detail=True, methods=["GET"])
+    def click_liked(self, request, pk=None):
+        review = self.get_object()
+        review.like_num += 1
+        review.save(update_fields=["like_num"])
+        return Response({
+            "review_content": review.review_content,
+            "like_count": review.like_num
+        })
+
+    @extend_schema(
+        tags=["🔥위키페이지"],
+        summary="현재 핫한 게시판"
+    )
+    @action(methods=["GET"], detail=False)
+    def top7_liked(self, request):
+        top_post = self.get_queryset().order_by("-like_num")[:7]
+        top_post_serializer = WikiReviewSerializer(top_post, many=True)
+        return Response(top_post_serializer.data)
+    
+    @extend_schema(
+        tags=["🔥위키페이지"],
+        summary="최근 업데이트된 위키"
+    )
+    @action(methods=["GET"], detail=False)
+    def top5_posted(self, request):
+        top_post = self.get_queryset().order_by("-created_at")[:5]
+        top_post_serializer = WikiReviewSerializer(top_post, many=True)
+        return Response(top_post_serializer.data)
 
 
 class WikiReportViewSet(viewsets.ModelViewSet):
@@ -135,9 +162,9 @@ class WikiReportViewSet(viewsets.ModelViewSet):
         return WikiReportSerializer
 
     @extend_schema(
-        tags=["위키 신고"],
+        tags=["🔥위키페이지"],
         responses={200: WikiReportSerializer(many=True)},
-        description="3.2.3 후기 신고 - GET: 신고 목록 조회 (관리자용)"
+        summary="3.2.3 후기 신고 - GET: 신고 목록 조회 (관리자용)"
     )
     def list(self, request, *args, **kwargs):
         """신고 목록 조회 (관리자 전용)"""
@@ -148,14 +175,14 @@ class WikiReportViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
-        tags=["위키 신고"],
-        request=WikiReportCreateSerializer,
+        tags=["🔥위키페이지"],
+        parameters=[WikiReportCreateSerializer],
         responses={201: WikiReportSerializer},
-        description="3.2.3 후기 신고 - POST: 후기 신고 접수 (신고 사유 포함)"
+        summary="3.2.3 후기 신고 - POST: 후기 신고 접수 (신고 사유 포함)"
     )
     def create(self, request, *args, **kwargs):
         """신고 생성 - reason, report_title, report_content 포함"""
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         
         try:
