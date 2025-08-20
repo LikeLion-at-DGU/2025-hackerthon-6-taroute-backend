@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema, OpenApiParameter
+from django.contrib.sessions.models import Session
 
 from .models import PopularKeyward, Place
 
@@ -124,18 +125,24 @@ class PlaceViewSet(viewsets.ViewSet):
     except Exception as e:
         return Response({"detail": f"오류 발생: {str(e)}"}, status=400)
 
-  @extend_schema(tags = ["🔥메인페이지"], summary="1.4 저장한 장소 정보 가져오기")
+  @extend_schema(
+    tags = ["🔥메인페이지"], 
+    parameters=[OpenApiParameter(name="session_key", description="세션 키", required=True, type=str)],
+    summary="1.4 저장한 장소 정보 가져오기"
+  )
   @action(detail=False, methods=["GET"])
   def get_saved_places(self, request):
-    # 현재 세션 ID 출력
-    session_key = request.session.session_key
-    print(f"Current session key: {session_key}")
 
-    # 세션에서 저장된 장소 정보 가져오기
-    saved_places = request.session.get('saved_places', {})
-    return Response({'session_key': session_key, 'places': saved_places})
-  
-  
+    session_key = request.query_params.get('session_key')
+    
+    try:
+        session = Session.objects.get(session_key=session_key)
+        session_data = session.get_decoded()
+        saved_places = session_data.get('saved_places', {})
+        return Response({'session_key': session_key, 'places': saved_places})
+    except Session.DoesNotExist:
+        return Response({'error': '세션을 찾을 수 없습니다.'}, status=404)
+
   # 위치 페이지
   ######################################################################################################
   @extend_schema(
