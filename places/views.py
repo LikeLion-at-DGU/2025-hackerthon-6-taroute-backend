@@ -127,6 +127,7 @@ class PlaceViewSet(viewsets.ViewSet):
     saved_places = request.session.get('saved_places', {})
     return Response({'places': saved_places})
   
+  
   # 위치 페이지
   ######################################################################################################
   @extend_schema(
@@ -142,6 +143,192 @@ class PlaceViewSet(viewsets.ViewSet):
         return Response({"detail": f"카카오 API 호출 실패: {e}"}, status=502)
 
     return Response({"address_list": address_list}, status=200)
+
+  # 카테고리 페이지
+  ######################################################################################################
+  @extend_schema(
+        tags=["🔥카테고리페이지"], summary="2.2 카테고리별 장소 검색 및 필터링",
+        parameters=[CategorySearchSerializer],
+        responses={200: CategoryPlaceSerializer(many=True)}
+  )
+  @action(detail=False, methods=["GET"])
+  def category_search(self, request):
+    """카테고리별 장소 검색 및 필터링
+    
+    - 검색어 기반 또는 카테고리별 장소 검색
+    - 거리, 방문시간, 방문요일 필터링 지원
+    - 다양한 정렬 옵션 제공
+    """
+    query = CategorySearchSerializer(data=request.query_params)
+    query.is_valid(raise_exception=True)
+    params = query.validated_data
+
+    # 위치 정보 필수 체크
+    if not params.get("x") or not params.get("y"):
+        return Response({"detail": "위치 정보(x, y)가 필요합니다."}, status=400)
+
+    try:
+        # 구글 API 호출을 위한 파라미터 구성
+        search_params = {
+            "text_query": params.get("text_query"),
+            "category": params.get("category", "all"),
+            "x": params["x"],
+            "y": params["y"],
+            "radius": params.get("radius", 5000),
+            "distance_filter": params.get("distance_filter", "all"),
+            "visit_time_filter": params.get("visit_time_filter", "all"),
+            "visit_days_filter": params.get("visit_days_filter"),
+            "sort_by": params.get("sort_by", "relevance"),
+            "limit": params.get("limit", 20)
+        }
+
+        # 구글 API 호출
+        places = google.search_category_places(**search_params)
+        
+        if not places:
+            return Response({
+                "detail": "검색 결과가 없습니다.",
+                "places": [],
+                "total_count": 0,
+                "filters_applied": {
+                    "category": params.get("category"),
+                    "distance_filter": params.get("distance_filter"),
+                    "visit_time_filter": params.get("visit_time_filter"),
+                    "visit_days_filter": params.get("visit_days_filter"),
+                    "sort_by": params.get("sort_by")
+                }
+            }, status=200)
+
+        return Response({
+            "places": places,
+            "total_count": len(places),
+            "filters_applied": {
+                "category": params.get("category"),
+                "distance_filter": params.get("distance_filter"),
+                "visit_time_filter": params.get("visit_time_filter"),
+                "visit_days_filter": params.get("visit_days_filter"),
+                "sort_by": params.get("sort_by")
+            }
+        }, status=200)
+
+    except requests.RequestException as e:
+        return Response({"detail": f"외부 API 호출 실패: {e}"}, status=502)
+    except Exception as e:
+        return Response({"detail": f"검색 중 오류 발생: {str(e)}"}, status=500)
+
+  @extend_schema(
+        tags=["🔥카테고리페이지"], summary="2.3 카테고리 페이지에서 장소 찜하기",
+        parameters=[SavePlaceSerializer]
+  )
+  @action(detail=False, methods=["GET"])
+  def category_save_place(self, request):
+    """카테고리 페이지에서 장소 찜하기 (기존 save_place와 동일한 로직)"""
+    place_id = request.query_params.get('place_id')
+
+    if not place_id:
+        return Response({"detail": "place_id가 필요합니다."}, status=400)
+
+    try:
+        data = google.search_detail(place_id)
+        place_name = data.get('place_name')
+
+        # set 타입 데이터가 있는지 확인하고 변환
+        for key, value in data.items():
+            if isinstance(value, set):
+                data[key] = list(value)
+
+        popularKeyward, created = PopularKeyward.objects.get_or_create(
+            place_id=place_id,
+            defaults={'place_name': place_name}
+        )
+
+        if not created:
+            popularKeyward.click_num += 1
+            popularKeyward.save()
+            
+        # 장소 정보는 세션에 저장
+        if 'saved_places' not in request.session:
+            request.session['saved_places'] = {}
+                
+        request.session['saved_places'][place_id] = data
+        request.session.modified = True  # 세션 변경사항 저장
+        
+        return Response({
+            "data": data, 
+            "message": "장소가 성공적으로 찜 목록에 추가되었습니다.",
+            "is_new": created,
+            "total_saves": popularKeyward.click_num
+        }, status=200)
+
+    except requests.RequestException as e:
+        return Response({"detail": f"구글 API 호출 실패: {e}"}, status=502)
+    except Exception as e:
+        return Response({"detail": f"오류 발생: {str(e)}"}, status=400)
+
+  @extend_schema(
+        tags=["🔧디버깅"], summary="구글 API 연결 테스트",
+        parameters=[OpenApiParameter(name="test", description="테스트 파라미터", required=False, type=str)]
+  )
+  @action(detail=False, methods=["GET"])
+  def debug_google_api(self, request):
+    """구글 API 연결 상태 디버깅"""
+    from django.conf import settings
+    import requests
+    
+    # API 키 확인
+    google_api_key = settings.GOOGLE_API_KEY
+    if not google_api_key:
+        return Response({
+            "error": "GOOGLE_API_KEY가 설정되지 않았습니다.",
+            "debug_info": {
+                "api_key_exists": False,
+                "api_key_length": 0
+            }
+        }, status=500)
+    
+    # 간단한 구글 Places API 테스트
+    test_url = "https://places.googleapis.com/v1/places:searchText"
+    headers = {
+        "X-Goog-Api-Key": google_api_key,
+        "Content-Type": "application/json",
+        "Referer": "http://localhost:8000",
+        "X-Goog-FieldMask": "places.displayName,places.id,places.formattedAddress,places.location"
+    }
+    test_body = {
+        "textQuery": "스타벅스 강남역",
+        "languageCode": "ko",
+        "regionCode": "KR",
+        "locationBias": {
+            "circle": {
+                "center": {"latitude": 37.497942, "longitude": 127.027619},
+                "radius": 1000
+            }
+        }
+    }
+    
+    try:
+        response = requests.post(test_url, headers=headers, json=test_body, timeout=10)
+        
+        return Response({
+            "debug_info": {
+                "api_key_exists": True,
+                "api_key_length": len(google_api_key),
+                "api_key_prefix": google_api_key[:10] + "..." if len(google_api_key) > 10 else google_api_key,
+                "google_api_status": response.status_code,
+                "google_api_response": response.json() if response.status_code == 200 else response.text[:500],
+                "test_query": "스타벅스 강남역"
+            }
+        }, status=200)
+        
+    except Exception as e:
+        return Response({
+            "error": f"구글 API 호출 실패: {str(e)}",
+            "debug_info": {
+                "api_key_exists": True,
+                "api_key_length": len(google_api_key),
+                "api_key_prefix": google_api_key[:10] + "..." if len(google_api_key) > 10 else google_api_key
+            }
+        }, status=500)
 
 # 타로 페이지
 ###########################################################################################################
