@@ -81,33 +81,53 @@ def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
     else:
         codes = [category_group_code] #카테고리 페이지에서는 10개씩 default
 
-    results = {
-        CATEGORY_LABELS[code]: _search_category(code, x, y, radius, size=limit) 
-        for code in codes
-    }
+    # 카테고리별 결과 검색
+    results = {}
+    for code in codes:
+        places = _search_category(code, x, y, radius, size=limit)
+
+        for p in places:
+            try:
+                res = google.search_place(
+                    text_query = p["place_name"],
+                    x = float(p["x"]),
+                    y = float(p["y"]),
+                    radius = 500
+                )
+
+                photos = res[0].get("place_photos", []) # 구글 사진 추가
+                review_count = res[0].get("review_count", 0) # 구글 리뷰 개수 추가
+                p["place_photos"] = list(photos)
+                p["review_count"] = review_count
+            except requests.RequestException:
+                p["place_photos"] = []
+                p["review_count"] = 0
+    
+        results[CATEGORY_LABELS[code]] = places
+
+    # 단일 카테고리인 경우 해당 결과만 반환, 아니면 전체 결과 반환
     return results[CATEGORY_LABELS[codes[0]]] if len(codes) == 1 else results
 
 # 카카오 recommend 후 구글 search_place(리뷰순정렬)
-def many_review_sort(place_list):
-    review_sort = []
-    for p in place_list:  # 각 장소 딕셔너리 순회
-      print("place_name:", p.get("place_name"))
-      try:
-          res = google.search_place(
-              text_query = p["place_name"],
-              x = float(p["x"]),
-              y = float(p["y"]),
-              radius = 500
-          )
-          if isinstance(res, list) and len(res) > 0:
-            count = res[0].get("review_count", 0)
-      except requests.RequestException:
-          count = 0
-      review_sort.append({**p, "review_count": count}) # 구글 리뷰수를 리스트에 추가
+# def many_review_sort(place_list):
+#     review_sort = []
+#     for p in place_list:  # 각 장소 딕셔너리 순회
+#       try:
+#           res = google.search_place(
+#               text_query=p.get("place_name", ""),
+#               x = float(p["x"]),
+#               y = float(p["y"]),
+#               radius = 500
+#           )
+#           if isinstance(res, list) and len(res) > 0:
+#             count = res[0].get("review_count", 0)
+#       except requests.RequestException:
+#           count = 0
+#       review_sort.append({**p, "review_count": count}) # 구글 리뷰수를 리스트에 추가
 
-      review_sort.sort(key=lambda v: v.get("review_count", 0), reverse=True) # 오름차순 정렬 후 반환
+#       review_sort.sort(key=lambda v: v.get("review_count", 0), reverse=True) # 오름차순 정렬 후 반환
 
-    return review_sort
+#     return review_sort
 
 # 6.1 등록된 카드의 동선 안내(택시, 자동차)
 def car_route(origin:str, destination:str):

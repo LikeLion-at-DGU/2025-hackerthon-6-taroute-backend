@@ -17,7 +17,7 @@ class PlaceRecommendSerializer(PlaceMixin):
     # radius = serializers.IntegerField(required=True)
     category_group_code = serializers.CharField(required=False)
     limit = serializers.IntegerField(required=False, default=7)
-    many_review = serializers.BooleanField(required=False) #지금 인기있는 순=리뷰 많은 순!
+    # many_review = serializers.BooleanField(required=False) #지금 인기있는 순=리뷰 많은 순!
 
 # 1.2 장소 저장하기
 class SavePlaceSerializer(serializers.Serializer):
