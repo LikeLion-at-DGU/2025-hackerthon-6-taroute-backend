@@ -1,7 +1,9 @@
 import re, requests
 from django.conf import settings
 from ..models import PopularKeyward
-from core import times
+from core.distance import calculate_distance
+from core.times import format_running
+from datetime import datetime, time as dt_time
 
 BASE = "https://places.googleapis.com/v1/places"
 
@@ -66,6 +68,7 @@ def _headers():
         "X-Goog-Api-Key": settings.GOOGLE_API_KEY,
         "Content-Type": "application/json",
         "Accept": "application/json",
+        "Referer": "http://localhost:8000",
         "X-Goog-FieldMask": "places.displayName,places.id,places.userRatingCount,places.nationalPhoneNumber,places.location,places.regularOpeningHours,places.rating,places.photos,places.priceRange,places.formattedAddress,places.types,places.reviews,places.priceLevel",
     }
 
@@ -153,7 +156,7 @@ def search_detail(place_id):
     if not running_time:
         time = "영업시간 정보 없음"
     else:
-        time = times.format_running(running_time)
+        time = format_running(running_time)
 
     search_details = {
         "place_name" : p.get("displayName", {}).get("text"),
@@ -269,3 +272,308 @@ def keyword_match(places, keywords):
             matched_places.append(place_copy)
 
     return matched_places
+
+# 카테고리별 구글 장소 타입 매핑
+CATEGORY_TYPE_MAPPING = {
+    "restaurant": [
+        "restaurant", "fast_food_restaurant", "pizza_restaurant", 
+        "sandwich_shop", "hamburger_restaurant", "korean_restaurant",
+        "chinese_restaurant", "japanese_restaurant", "italian_restaurant",
+        "american_restaurant", "thai_restaurant", "indian_restaurant",
+        "mexican_restaurant", "french_restaurant", "vietnamese_restaurant"
+    ],
+    "cafe": [
+        "cafe", "coffee_shop", "bakery", "dessert_shop", "ice_cream_shop"
+    ],
+    "culture": [
+        "art_gallery", "museum", "performing_arts_theater", 
+        "cultural_landmark", "historical_landmark", "library"
+    ],
+    "tourist_attraction": [
+        "amusement_park", "aquarium", "zoo", "park", "tourist_attraction",
+        "botanical_garden", "cultural_center", "event_venue", "garden", "plaza"
+    ]
+}
+
+def search_category_places(
+    text_query=None, 
+    category="all", 
+    x=None, 
+    y=None, 
+    radius=5000,
+    distance_filter="all",
+    visit_time_filter="all", 
+    visit_days_filter=None,
+    sort_by="relevance",
+    limit=20
+):
+    """카테고리 페이지용 장소 검색 (필터링 포함)
+    
+    Args:
+        text_query: 검색어 (선택사항)
+        category: 카테고리 ("restaurant", "cafe", "culture", "tourist_attraction", "all")
+        x, y: 검색 중심 좌표
+        radius: 기본 검색 반경
+        distance_filter: 거리 필터 ("1km", "3km", "5km", "5km_plus", "all")
+        visit_time_filter: 방문시간 필터 ("morning", "afternoon", "evening", "night", "dawn", "all")
+        visit_days_filter: 방문요일 필터 (리스트)
+        sort_by: 정렬 기준 ("distance", "relevance", "rating", "popularity")
+        limit: 결과 수 제한
+    
+    Returns:
+        필터링된 장소 리스트
+    """
+    
+    # 거리 필터에 따른 반경 조정
+    if distance_filter == "1km":
+        search_radius = 1000
+    elif distance_filter == "3km":
+        search_radius = 3000
+    elif distance_filter == "5km":
+        search_radius = 5000
+    elif distance_filter == "5km_plus":
+        search_radius = radius  # 기본값 사용하고 나중에 5km 이상만 필터링
+    else:
+        search_radius = radius
+    
+    # 구글 Places API 요청 구성
+    body = {
+        "languageCode": "ko",
+        "regionCode": "KR",
+        "locationRestriction": {
+            "circle": {
+                "center": {"latitude": float(y), "longitude": float(x)},
+                "radius": search_radius,
+            }
+        }
+    }
+    
+    # 텍스트 쿼리가 있으면 searchText 사용, 없으면 searchNearby 사용
+    if text_query:
+        body["textQuery"] = text_query
+        if sort_by == "distance":
+            body["rankPreference"] = "DISTANCE"
+        else:
+            body["rankPreference"] = "RELEVANCE"
+        
+        api_url = f"{BASE}:searchText"
+    else:
+        # 카테고리별 장소 타입 설정
+        if category != "all" and category in CATEGORY_TYPE_MAPPING:
+            body["includedTypes"] = CATEGORY_TYPE_MAPPING[category]
+        else:
+            # 전체 카테고리인 경우 모든 타입 포함
+            all_types = []
+            for types in CATEGORY_TYPE_MAPPING.values():
+                all_types.extend(types)
+            body["includedTypes"] = all_types
+        
+        api_url = f"{BASE}:searchNearby"
+    
+    try:
+        r = requests.post(api_url, headers=_headers(), json=body, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        places = data.get("places", [])
+        
+        # 장소 데이터 변환 및 필터링
+        filtered_places = []
+        
+        for p in places:
+            # 기본 정보 추출
+            place_data = _extract_place_data(p, x, y)
+            
+            # 거리 필터 적용 (5km 이상인 경우만)
+            if distance_filter == "5km_plus":
+                place_distance = float(place_data.get("distance_km", 0))
+                if place_distance < 5.0:
+                    continue
+            
+            # 영업시간 관련 필터 적용
+            if visit_time_filter != "all" or visit_days_filter:
+                opening_hours = p.get("regularOpeningHours", {})
+                
+                # 방문시간 필터
+                if visit_time_filter != "all":
+                    if not _check_time_filter(opening_hours, visit_time_filter):
+                        continue
+                
+                # 방문요일 필터
+                if visit_days_filter:
+                    if not _check_days_filter(opening_hours, visit_days_filter):
+                        continue
+            
+            filtered_places.append(place_data)
+        
+        # 정렬 적용
+        sorted_places = _sort_places(filtered_places, sort_by)
+        
+        # 결과 수 제한
+        return sorted_places[:limit]
+        
+    except Exception as e:
+        print(f"카테고리 장소 검색 실패: {e}")
+        return []
+
+def _extract_place_data(place, center_x, center_y):
+    """구글 Places API 응답에서 장소 데이터 추출"""
+    
+    # 인기도 정보 (DB에서 조회)
+    place_id = place.get("id")
+    click_num = 0
+    try:
+        popular_place = PopularKeyward.objects.get(place_id=place_id)
+        click_num = popular_place.click_num
+    except PopularKeyward.DoesNotExist:
+        pass
+    
+    # 거리 계산
+    place_lat = place.get("location", {}).get("latitude", 0)
+    place_lng = place.get("location", {}).get("longitude", 0)
+    distance_km = calculate_distance(center_y, center_x, place_lat, place_lng)
+    
+    # 카테고리 분류
+    place_types = place.get("types", [])
+    category = _classify_category(place_types)
+    
+    # 사진 URL 생성
+    photos = place.get("photos", [])
+    place_photos = [
+        build_photo_url(photo["name"], max_width_px=400)
+        for photo in photos[:3]  # 최대 3장
+        if photo.get("name")
+    ]
+    
+    # 영업시간 정보 처리
+    opening_hours = place.get("regularOpeningHours", {})
+    is_open_now = place.get("businessStatus") == "OPERATIONAL"
+    
+    return {
+        "place_id": place_id,
+        "place_name": place.get("displayName", {}).get("text", ""),
+        "category": category,
+        "address": place.get("formattedAddress", ""),
+        "location": place.get("location", {}),
+        "distance": f"{distance_km}km",
+        "distance_km": distance_km,
+        "rating": place.get("rating", 0.0),
+        "review_count": place.get("userRatingCount", 0),
+        "price_level": _get_price_level(place.get("priceLevel")),
+        "opening_hours": opening_hours,
+        "is_open_now": is_open_now,
+        "place_photos": place_photos,
+        "click_num": click_num
+    }
+
+def _classify_category(place_types):
+    """장소 타입을 기반으로 카테고리 분류"""
+    for category, types in CATEGORY_TYPE_MAPPING.items():
+        if any(ptype in types for ptype in place_types):
+            if category == "restaurant":
+                return "식당"
+            elif category == "cafe":
+                return "카페"
+            elif category == "culture":
+                return "문화시설"
+            elif category == "tourist_attraction":
+                return "관광명소"
+    return "기타"
+
+def _get_price_level(price_level):
+    """가격 수준을 한국어로 변환"""
+    if not price_level:
+        return "정보 없음"
+    
+    price_mapping = {
+        "PRICE_LEVEL_FREE": "무료",
+        "PRICE_LEVEL_INEXPENSIVE": "저렴함",
+        "PRICE_LEVEL_MODERATE": "보통",
+        "PRICE_LEVEL_EXPENSIVE": "비쌈",
+        "PRICE_LEVEL_VERY_EXPENSIVE": "매우 비쌈"
+    }
+    return price_mapping.get(price_level, "정보 없음")
+
+def _check_time_filter(opening_hours, time_filter):
+    """방문시간 필터 체크"""
+    if not opening_hours or not opening_hours.get("periods"):
+        return False
+    
+    # 시간대별 범위 정의
+    time_ranges = {
+        "morning": (6, 12),    # 06:00-12:00
+        "afternoon": (12, 17), # 12:00-17:00
+        "evening": (17, 21),   # 17:00-21:00
+        "night": (21, 24),     # 21:00-24:00
+        "dawn": (0, 6)         # 00:00-06:00
+    }
+    
+    if time_filter not in time_ranges:
+        return True
+    
+    start_hour, end_hour = time_ranges[time_filter]
+    
+    # 각 요일별 영업시간 체크
+    for period in opening_hours.get("periods", []):
+        open_time = period.get("open", {})
+        close_time = period.get("close", {})
+        
+        if not open_time or not close_time:
+            continue
+        
+        open_hour = open_time.get("hour", 0)
+        close_hour = close_time.get("hour", 24)
+        
+        # 24시간 영업인 경우
+        if close_hour == 0:
+            close_hour = 24
+        
+        # 영업시간이 필터 시간과 겹치는지 확인
+        if _time_overlap(open_hour, close_hour, start_hour, end_hour):
+            return True
+    
+    return False
+
+def _check_days_filter(opening_hours, days_filter):
+    """방문요일 필터 체크"""
+    if not opening_hours or not opening_hours.get("periods"):
+        return False
+    
+    # 요일 매핑 (구글 API는 0=일요일부터 시작)
+    day_mapping = {
+        "sunday": 0, "monday": 1, "tuesday": 2, "wednesday": 3,
+        "thursday": 4, "friday": 5, "saturday": 6
+    }
+    
+    # 필터에서 요청한 요일들의 숫자 변환
+    filter_day_numbers = [day_mapping.get(day) for day in days_filter if day in day_mapping]
+    
+    # 영업하는 요일들 추출
+    operating_days = set()
+    for period in opening_hours.get("periods", []):
+        open_day = period.get("open", {}).get("day")
+        if open_day is not None:
+            operating_days.add(open_day)
+    
+    # 필터 요일 중 하나라도 영업하면 통과
+    return any(day_num in operating_days for day_num in filter_day_numbers)
+
+def _time_overlap(start1, end1, start2, end2):
+    """두 시간 범위가 겹치는지 확인"""
+    return max(start1, start2) < min(end1, end2)
+
+def _sort_places(places, sort_by):
+    """장소 리스트 정렬"""
+    if sort_by == "distance":
+        return sorted(places, key=lambda x: x.get("distance_km", 999))
+    elif sort_by == "rating":
+        return sorted(places, key=lambda x: x.get("rating", 0), reverse=True)
+    elif sort_by == "popularity":
+        return sorted(places, key=lambda x: x.get("click_num", 0), reverse=True)
+    else:  # relevance (기본값)
+        # 평점과 리뷰 수를 조합한 관련성 점수
+        def relevance_score(place):
+            rating = place.get("rating", 0)
+            review_count = min(place.get("review_count", 0), 1000)  # 최대 1000으로 제한
+            return rating * (1 + review_count / 1000)
+        
+        return sorted(places, key=relevance_score, reverse=True)
