@@ -110,10 +110,14 @@ class PlaceViewSet(viewsets.ViewSet):
         # 장소 정보는 세션에 저장
         if 'saved_places' not in request.session:
             request.session['saved_places'] = {}
+
+        # 현재 세션 ID 출력
+        session_key = request.session.session_key
+        print(f"Current session key: {session_key}")
                 
         request.session['saved_places'][place_id] = data
         request.session.modified = True  # 세션 변경사항 저장
-        return Response({"data": data, "message": "장소가 성공적으로 저장되었습니다."}, status=200)
+        return Response({"data": data, "session_key":session_key, "message": "장소가 성공적으로 저장되었습니다."}, status=200)
 
     except requests.RequestException as e:
         return Response({"detail": f"구글 API 호출 실패: {e}"}, status=502)
@@ -449,6 +453,7 @@ class ChatViewSet(viewsets.ViewSet):
 
         for p in matches:
             place_id = p.get('place_id')
+            
             if place_id and place_id not in p_id:
                 print(f"[MATCH] {p.get('place_name')} ({len(p.get('matches', []))} hits)")
                 for hit in p.get('matches', [])[:3]:
@@ -461,7 +466,8 @@ class ChatViewSet(viewsets.ViewSet):
                 select.append({
                     "select_num" : len(select) + 1,
                     "place_id" : place_id,
-                    "place_name" : p.get('place_name')
+                    "place_name" : p.get('place_name'),
+                    "place_photos" : p.get('place_photos')
                 })
                 p_id.add(place_id)
                 add_count += 1
@@ -476,7 +482,8 @@ class ChatViewSet(viewsets.ViewSet):
                     select.append({
                         "select_num" : len(select) + 1,
                         "place_id" : t_id,
-                        "place_name" : t.get('place_name')
+                        "place_name" : t.get('place_name'),
+                        "place_photos" : t.get('place_photos')
                     })
                     p_id.add(t_id)
                     add_count += 1

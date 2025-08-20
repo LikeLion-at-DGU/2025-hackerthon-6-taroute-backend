@@ -233,10 +233,19 @@ def search_slot(x, y, radius):
                 for re in reviews
                 if re.get("text") or {}.get("text")
             ]
+
+            photos = p.get("photos", [])
+            place_photos = {
+                build_photo_url(p["name"], max_width_px=800)
+                for p in photos[:1]
+                if p.get("name")
+            }
+
             google_place.append({
                 "category" : category_name,
                 "place_id" : p.get("id"),
                 "place_name" : p.get("displayName", {}).get("text"),
+                "place_photos":place_photos,
                 "address" : p.get("formattedAddress"),
                 "location" : p.get("location"),
                 "reviews_text":reviews_text,
