@@ -107,7 +107,15 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
             click_num = p_id.click_num if p_id else 0
         except PopularKeyward.DoesNotExist:
             pass
+
+        photos = p.get("photos", [])
+        place_photos = {
+            build_photo_url(p["name"], max_width_px=800)
+            for p in photos
+            if p.get("name")
+        }
         
+
         google_place.append({
             # 장소카드에서는 place_name, address, location
             "place_id" : p.get("id"),
@@ -115,7 +123,8 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
             "address" : p.get("formattedAddress"),
             "location" : p.get("location"),
             "review_count" : review_count,
-            "click_num": click_num
+            "click_num": click_num,
+            "place_photos" : place_photos
             # "types" : p.get("types"),
             # "phone_number" : p.get("nationalPhoneNumber"),
             # "rating" : p.get("rating"),

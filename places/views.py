@@ -123,9 +123,13 @@ class PlaceViewSet(viewsets.ViewSet):
   @extend_schema(tags = ["🔥메인페이지"], summary="1.4 저장한 장소 정보 가져오기")
   @action(detail=False, methods=["GET"])
   def get_saved_places(self, request):
+    # 현재 세션 ID 출력
+    session_key = request.session.session_key
+    print(f"Current session key: {session_key}")
+
     # 세션에서 저장된 장소 정보 가져오기
     saved_places = request.session.get('saved_places', {})
-    return Response({'places': saved_places})
+    return Response({'session_key': session_key, 'places': saved_places})
   
   
   # 위치 페이지
