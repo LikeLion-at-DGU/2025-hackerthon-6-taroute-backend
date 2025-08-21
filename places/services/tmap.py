@@ -3,7 +3,7 @@ import requests
 from django.conf import settings
 
 BASE = "https://apis.openapi.sk.com/transit/routes"
-WALK = "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1"
+ROUTE = "https://apis.openapi.sk.com/tmap/routes"
 
 def _headers():
     return {
@@ -22,7 +22,8 @@ def walk_route(startX, startY, endX, endY, startName=None, endName=None):
         "startName":startName,
         "endName":endName
     }
-    r = requests.post(WALK, headers=_headers(), json=payload, timeout=5)
+    # f"{BASE}:searchNearby"
+    r = requests.post(f"{ROUTE}/pedestrian?version=1", headers=_headers(), json=payload, timeout=5)
     r.raise_for_status()
     features = r.json().get("features") or []
     data = features[0].get("properties") or {}
@@ -108,3 +109,37 @@ def traffic_route(startX, startY, endX, endY, lang=0, format="json", count=5):
         },
         "segments" : segments
     }
+
+
+# 6.1 등록된 카드의 동선 안내(자동차)
+def car_route(startX, startY, endX, endY, lang=0, format="json", count=5): 
+    payload = {
+        "startX":startX, 
+        "startY":startY, 
+        "endX":endX, 
+        "endY":endY,
+        "lang": lang,
+        "format": format,
+        "count": count
+    }
+
+    r = requests.post(ROUTE, headers=_headers(), json=payload, timeout=5)
+    r.raise_for_status() #200대가 아니면 에러 발생
+
+    data = r.json()
+
+    features = data.get("features") or []
+    properties = features[0].get("properties") or {}
+    car_distance = round(properties.get("totalDistance", 0)/1000, 1) # 0.0km
+    car_time = round(properties.get("totalTime", 0)/60) # 0분
+    car_fare = properties.get("taxiFare", 0) + properties.get("totalFare", 0) # 택시요금 + 톨비
+
+    car_routes = []
+
+    car_routes.append({
+        "car_duration": f"{car_time}분",
+        "distance": f"{car_distance}km",
+        "taxi_fare": f"{car_fare:,}원"
+    })
+
+    return car_routes
