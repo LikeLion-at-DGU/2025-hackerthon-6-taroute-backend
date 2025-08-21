@@ -44,16 +44,15 @@ class PlaceViewSet(viewsets.ViewSet):
     except requests.RequestException as e:
         return Response({"detail": f"카카오 API 호출 실패: {e}"}, status=502)
     
-    if params.get("many_review") == True:
-        try:
-            data = kakao.many_review_sort(data)
-            print("type(data) ->", type(data))
-        except requests.RequestException as e:
-            # 구글 실패하더라도 카카오 결과는 반환
-            return Response(
-                {"detail": f"구글 리뷰 조회 실패: {e}", "data": data},
-                status=207,  # Multi-Status
-            )
+    # if params.get("many_review") == True:
+    #     try:
+    #         data = kakao.many_review_sort(data)
+    #     except requests.RequestException as e:
+    #         # 구글 실패하더라도 카카오 결과는 반환
+    #         return Response(
+    #             {"detail": f"구글 리뷰 조회 실패: {e}", "data": data},
+    #             status=207,  # Multi-Status
+    #         )
         
     return Response({"data": data}, status=200) 
   
@@ -522,10 +521,10 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
   @extend_schema(
     tags = ["🔥동선페이지"], summary="6.1 등록된 카드의 동선 안내",
     parameters=[PlaceRouteSerializer],
-    description="출발지, 도착지 좌표로 경로 안내(GET=자동차, POST=대중교통, 도보)",
+    description="출발지, 도착지 좌표로 경로 안내(POST=자동차, 대중교통, 도보)",
  )
 
-  @action(detail=False, methods=["GET", "POST"])
+  @action(detail=False, methods=["POST"])
   def path(self, request):
 
     # 1) 유효성 검사
@@ -540,26 +539,23 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
     print(f"[DEBUG] 실행된 API: {transport}")
 
     # 2) API 호출
+    params = dict( #자동차, 대중교통
+                startX=ox, 
+                startY=oy,
+                endX=dx,
+                endY=dy,
+                count=1, lang=0, format="json"
+            )
+    
     try:
         if transport == "car": # 카카오내비(자동차)
-            params = {
-                "origin": f"{ox},{oy}",
-                "destination": f"{dx},{dy}",
-            }
-            car_routes = kakao.car_route(**params)
+            car_routes = tmap.car_route(**params)
             if not car_routes:
                 return Response({"detail": "문서 정보를 찾지 못했습니다."}, status=404)
             return Response({"car_routes": car_routes}, status=200)
 
         elif transport == "transit":  # 티맵 (대중교통)
-            params_l = dict(
-                startX=data["origin_x"], 
-                startY=data["origin_y"],
-                endX=data["destination_x"],
-                endY=data["destination_y"],
-                count=1, lang=0, format="json"
-            )
-            traffic_routes = tmap.traffic_route(**params_l)
+            traffic_routes = tmap.traffic_route(**params)
             if not traffic_routes:
                 return Response({"detail": "대중교통 경로 없음"}, status=404)
 
@@ -569,17 +565,16 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
             }, status=200)
         
         elif transport == "walk": # 티맵(도보)
-
-            payload_W = dict (
-                startX = data["origin_x"],
-                startY = data["origin_y"],
-                endX = data["destination_x"],
-                endY = data["destination_y"],
+            params_w = dict( #도보
+                startX=ox, 
+                startY=oy,
+                endX=dx,
+                endY=dy,
                 startName = data["startName"],
                 endName = data["endName"]
             )
 
-            walk_data = tmap.walk_route(**payload_W)
+            walk_data = tmap.walk_route(**params_w)
             return Response({"data":walk_data}, status=200)
         
         else:

@@ -128,30 +128,3 @@ def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
 #       review_sort.sort(key=lambda v: v.get("review_count", 0), reverse=True) # 오름차순 정렬 후 반환
 
 #     return review_sort
-
-# 6.1 등록된 카드의 동선 안내(택시, 자동차)
-def car_route(origin:str, destination:str):
-    params = {
-        "origin": origin,
-        "destination": destination,
-    }
-    r = requests.get(f"{ROUTE}", headers=_headers(), params=params, timeout=5)
-    r.raise_for_status()
-
-    # 3) 자동차 정보 가공(소요시간(분), 통행거리(km), 택시요금(원))
-    data = r.json().get("routes", [])
-    car_routes = []
-    summary = data[0].get("summary", {})
-    fare = summary.get("fare", {}) or {}
-
-    taxi_fare = fare.get("taxi", 0) + fare.get("toll", 0) # 택시요금 + 톨비
-    distance = round(summary.get("distance", 0)/1000, 1) # 0.0km
-    car_duration = round(summary.get("duration", 0)/60) # 0분
-
-    car_routes.append({
-        "car_duration": f"{car_duration}분",
-        "distance": f"{distance}km",
-        "taxi_fare": f"{taxi_fare:,}원",
-    })
-
-    return car_routes
