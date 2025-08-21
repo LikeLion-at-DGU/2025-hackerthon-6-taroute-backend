@@ -8,6 +8,7 @@ colorama==0.4.6
 distro==1.9.0
 Django==5.2.5
 django-cors-headers==4.7.0
+django-extensions==4.1
 djangorestframework==3.16.1
 drf-spectacular==0.28.0
 drf-spectacular-sidecar==2025.8.1
@@ -19,15 +20,18 @@ inflection==0.5.1
 jiter==0.10.0
 jsonschema==4.25.0
 jsonschema-specifications==2025.4.1
+networkx==3.5
 openai==1.99.6
 pillow==11.3.0
 pydantic==2.11.7
 pydantic_core==2.33.2
+python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
 PyYAML==6.0.2
 referencing==0.36.2
 requests==2.32.4
 rpds-py==0.27.0
+six==1.17.0
 sniffio==1.3.1
 sqlparse==0.5.3
 tqdm==4.67.1

@@ -2,14 +2,19 @@ import re
 from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework import viewsets
+from rest_framework import viewsets, status, mixins
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from django.contrib.sessions.models import Session
+from rest_framework.permissions import AllowAny
+from django.utils import timezone
+import networkx as nx
 
-from .models import PopularKeyward, Place
+
+
+from .models import PopularKeyward, Place, RouteSnapshot
 
 from .serializers import *
-from .services import kakao, tmap, google, openai
+from .services import kakao, tmap, google, openai, tsp_route
 
 import requests
 import json
@@ -582,3 +587,111 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
     
     except requests.RequestException as e:
         return Response({"detail": f"외부 API 호출 실패: {e}"}, status=502)
+
+
+  # 6.2 AI 추천 받기 TSP 알고리즘
+  @extend_schema(
+    tags = ["🔥동선페이지"], 
+    parameters=[
+        OpenApiParameter(name="session_key", description="세션 키", required=True, type=str),
+        OpenApiParameter(name="day", description="방문요일", required=True, type=str),
+        OpenApiParameter(name="x", description="경도", required=True, type=str),
+        OpenApiParameter(name="y", description="위도", required=True, type=str)
+    ],
+    summary="6.2 AI 추천 받기 / TSP 알고리즘"
+  )
+  @action(detail=False, methods=["GET"])
+  def ai_routes(self, request):
+
+    session_key = request.query_params.get('session_key')
+    day = request.query_params.get('day')
+    x = request.query_params.get('x')
+    y = request.query_params.get('y')
+
+    try:
+        session = Session.objects.get(session_key=session_key)
+        session_data = session.get_decoded()
+        data = session_data.get('saved_places', {})
+
+        # 1) 세션에 담긴 장소에서 사용자가 선택한 요일의 영업정보 가져오기
+        filter_data = tsp_route.filter(day, data)
+
+        # 2) NetworkX TSP 알고리즘으로 가게간의 직선거리를 엣지 가중치로 최적 경로 구하기
+        routes = tsp_route.tsp_route(filter_data, cycle=False, mylat=x, mylng=y)
+        path = tsp_route.route_info(filter_data, routes)
+
+        return Response({'session_key': session_key, 'result': path})
+    except Session.DoesNotExist:
+        return Response({'error': '세션을 찾을 수 없습니다.'}, status=404)
+
+    
+# URL 세션
+######################################################################
+# class RouteSnapshotViewSet(mixins.CreateModelMixin,
+#                            mixins.RetrieveModelMixin,
+#                            viewsets.GenericViewSet):
+#     queryset = RouteSnapshot.objects.all()
+#     serializer_class = RouteSnapshotSerializer
+#     permission_classes = [AllowAny]
+#     lookup_field = "short"
+
+
+#     @extend_schema(
+#         tags = ["🔥기타페이지"], summary="6.1 등록된 카드의 동선 안내 URL",
+#         request=[RouteSnapshotCreateSerializer],
+#         description="출발지, 도착지 좌표로 경로 안내(POST=자동차, 대중교통, 도보)",
+#     )
+#     def create(self, request, *args, **kwargs):
+#         s = RouteSnapshotCreateSerializer(data=request.data)
+#         s.is_valid(raise_exception=True)
+
+#         # 세션 사용자 식별 정도만 저장(로그인 없음)
+#         session_key = request.session.session_key
+#         if not session_key:
+#             request.session.create()
+#             session_key = request.session.session_key
+
+#         # 중복 슬러그 발생 시 재시도
+#         for _ in range(3):
+#             try:
+#                 snap = RouteSnapshot.objects.create(
+#                     session_key=session_key,
+#                     params=s.validated_data["params"],
+#                     result=s.validated_data["result"],
+#                 )
+#                 break
+#             except Exception:
+#                 continue
+
+#         return Response(RouteSnapshotSerializer(snap).data, status=status.HTTP_201_CREATED)
+
+#     def retrieve(self, request, short=None):
+#         snap = self.get_object()
+#         if snap.expires_at and snap.expires_at < timezone.now():
+#             return Response({"detail": "링크가 만료되었습니다."}, status=410)
+#         return Response(RouteSnapshotSerializer(snap).data)
+    
+    # {
+    #     "params": {
+    #         "start": {"name":"중앙대 정문", "x":126.9599, "y":37.5058},
+    #         "end":   {"name":"흑석역 3번출구", "x":126.9639, "y":37.5086},
+    #         "radius": 2000,
+    #         "filters": {"transport":"car", "budget":"~10000", "vibe":"데이트"}
+    #     },
+    #     "result": {
+    #         "time": 6,
+    #         "distance": 1100,
+    #         "cost": 5000,
+    #         "stops": [
+    #         {"idx":1,"name":"선우카페","x":126.9618,"y":37.5066,"eta_min":2},
+    #         {"idx":2,"name":"필동밤","x":126.9627,"y":37.5074,"eta_min":2},
+    #         {"idx":3,"name":"흑석역 3번출구","x":126.9639,"y":37.5086,"eta_min":2}
+    #         ],
+    #         "cards": [
+    #         {"title":"데이트 ☕ → 산책 → 귀가","desc":"따뜻한 라떼 후 캠퍼스 산책"},
+    #         {"title":"대안 루트","desc":"비 오면 카페 2곳"}
+    #         ],
+    #         "polyline": [[126.9599,37.5058],[126.9618,37.5066],[126.9627,37.5074],[126.9639,37.5086]]
+    #     }
+    # }  
+
