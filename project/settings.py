@@ -23,6 +23,8 @@ TMAP_API_KEY = os.getenv("TMAP_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+# 추가 API 키들은 제거됨 (구글맵 리뷰만 사용)
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
