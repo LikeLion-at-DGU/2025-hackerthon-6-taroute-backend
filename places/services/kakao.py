@@ -88,6 +88,7 @@ def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
 
         for p in places:
             try:
+                # 카카오 recommend 후 구글 search_place
                 res = google.search_place(
                     text_query = p["place_name"],
                     x = float(p["x"]),
@@ -108,7 +109,26 @@ def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
     # 단일 카테고리인 경우 해당 결과만 반환, 아니면 전체 결과 반환
     return results[CATEGORY_LABELS[codes[0]]] if len(codes) == 1 else results
 
-# 카카오 recommend 후 구글 search_place(리뷰순정렬)
+# 6.2 AI 루트 추천 관련 카테고리 검색
+def look_category(q, x, y, radius, size=1):
+    params = {
+        "query": q,
+        "x": x,
+        "y": y,
+        "radius": radius,
+        "size":size,
+    }
+    r = requests.get(f"{LOCAL}/search/keyword.json", headers=_headers(), params=params, timeout=5)
+    r.raise_for_status()
+    data = (r.json() or {}).get("documents", [])
+    
+    if data and len(data) > 0:
+        data_type = data[0].get("category_group_code", "")
+        return data_type
+    else:
+        # 데이터가 없는 경우 기본값(음식점) 반환
+        return "FD6"
+
 # def many_review_sort(place_list):
 #     review_sort = []
 #     for p in place_list:  # 각 장소 딕셔너리 순회

@@ -174,6 +174,7 @@ CORS_ALLOWED_ORIGINS = [ #API 호출할 수 있는 출처 목록
   "https://127.0.0.1:8000",
   "http://localhost:5173",
   "https://sein0327.shop",
+  "https://api.sein0327.shop",
   "https://taroute.netlify.app"
 ]
 
@@ -182,9 +183,12 @@ CSRF_TRUSTED_ORIGINS = [ #CSRF 토큰 검증 통과
   "https://127.0.0.1:8000",
   "http://localhost:5173",
   "https://sein0327.shop",
+  "https://api.sein0327.shop",
   "https://taroute.netlify.app"
 ]
 CORS_ALLOW_CREDENTIALS = True #HTTP 자격증명 추가
 CSRF_COOKIE_SECURE = True #운영서버에서 True로 킬 것, http 보안!
 SESSION_COOKIE_SECURE = False #위와 동일
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True #브라우저 닫으면 세션 만료
+
+SESSION_COOKIE_AGE = 86400  # 초 단위: 24시간 = 86400초
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # 브라우저를 닫아도 세션 유지

@@ -9,10 +9,24 @@ def format_running(running_time):
     all_breaks = []  # 모든 요일의 브레이크 타임을 저장할 리스트
     
     for d in range(7):
-        day_periods = [ 
-            p for p in running_time.get("periods", []) 
-            if p.get("open") and p["open"].get("day") == d 
-        ]
+        day_periods = []
+        try:
+            # 예외처리: open과 close가 모두 있는 경우만 추가
+            day_periods = [
+                p for p in running_time.get("periods", []) 
+                if p.get("open") and p.get("close") and 
+                p["open"].get("day") == d and 
+                p["open"].get("hour") is not None and 
+                p["open"].get("minute") is not None and
+                p["close"].get("hour") is not None and
+                p["close"].get("minute") is not None
+            ]
+        except Exception as e:
+            # 예외 발생 시 해당 요일은 정보 없음으로 처리
+            result.append(f"{DAYS[d]} 정보 없음")
+            all_breaks.append([])
+            continue
+        
         # day 값이 없으면 휴무일
         if not day_periods:
             result.append(f"{DAYS[d]} 휴무일")
