@@ -595,8 +595,8 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
     parameters=[
         OpenApiParameter(name="session_key", description="세션 키", required=True, type=str),
         OpenApiParameter(name="day", description="방문요일", required=True, type=str),
-        OpenApiParameter(name="x", description="경도", required=True, type=str),
-        OpenApiParameter(name="y", description="위도", required=True, type=str)
+        OpenApiParameter(name="x", description="경도", required=True, type=float),
+        OpenApiParameter(name="y", description="위도", required=True, type=float)
     ],
     summary="6.2 AI 추천 받기 / TSP 알고리즘"
   )
@@ -617,7 +617,7 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
         filter_data = tsp_route.filter(day, data)
 
         # 2) NetworkX TSP 알고리즘으로 가게간의 직선거리를 엣지 가중치로 최적 경로 구하기
-        routes = tsp_route.tsp_route(filter_data, cycle=False, mylat=x, mylng=y)
+        routes = tsp_route.tsp_route(filter_data, cycle=False, mylat=float(x), mylng=float(y))
         path = tsp_route.route_info(filter_data, routes)
 
         return Response({'session_key': session_key, 'result': path})

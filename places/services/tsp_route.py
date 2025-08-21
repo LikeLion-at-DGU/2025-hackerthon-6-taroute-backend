@@ -35,8 +35,8 @@ def find_nearest_place(places, mylat, mylng):
     nearest_idx = 0
     
     for i, place in enumerate(places):
-        lat = place["location"]["latitude"]
-        lng = place["location"]["longitude"]
+        lat = float(place["location"]["latitude"])
+        lng = float(place["location"]["longitude"])
         distance = calculate_distance(mylat, mylng, lat, lng)
         
         if distance < min_distance:
