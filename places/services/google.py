@@ -88,7 +88,7 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
         },
         "priceLevels": priceLevel,  # 가격대 "PRICE_LEVEL_INEXPENSIVE", "PRICE_LEVEL_MODERATE"
     }
-    r = requests.post(f"{BASE}:searchText", headers=_headers(), json=body, timeout=5)
+    r = requests.post(f"{BASE}:searchText", headers=_headers(), json=body, timeout=15)
     r.raise_for_status()  # 200대가 아니면 에러 발생
 
     data = r.json()
@@ -150,7 +150,7 @@ def search_detail(place_id):
         "regionCode": "KR",
         "fields": "id,displayName,formattedAddress,location,regularOpeningHours,photos",
     }
-    r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=5)
+    r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=15)
     r.raise_for_status()
     p = r.json()
 
@@ -192,7 +192,7 @@ def search_slot(x, y, radius):
         "includedTypes": culture_types + leisure_types + food_types + cafe_types,
     }
 
-    r = requests.post(f"{BASE}:searchNearby", headers=_headers(), json=body, timeout=5)
+    r = requests.post(f"{BASE}:searchNearby", headers=_headers(), json=body, timeout=15)
     r.raise_for_status()  # 200대가 아니면 에러 발생
     data = r.json()
     places = data.get("places") or []
@@ -389,7 +389,7 @@ def search_category_places(
         api_url = f"{BASE}:searchNearby"
     
     try:
-        r = requests.post(api_url, headers=_headers(), json=body, timeout=10)
+        r = requests.post(api_url, headers=_headers(), json=body, timeout=20)
         r.raise_for_status()
         data = r.json()
         places = data.get("places", [])
