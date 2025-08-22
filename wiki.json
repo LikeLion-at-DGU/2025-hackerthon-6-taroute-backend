@@ -1,0 +1,95 @@
+[
+{
+  "model": "wiki.wikiplace",
+  "pk": 1,
+  "fields": {
+    "shop_name": "하이디라오 명동점",
+    "ai_summation": null,
+    "ai_summation_info": {},
+    "basic_information": null,
+    "basic_information_info": {},
+    "kakao_place_id": null,
+    "google_place_id": "ChIJSaOZ2vGifDUR8XJ_u0e9Ir0",
+    "average_review_score": "4.20",
+    "total_review_count": 1,
+    "created_at": "2025-08-22T10:36:44.194Z",
+    "updated_at": "2025-08-22T10:36:44.197Z",
+    "ai_summary_updated_at": null
+  }
+},
+{
+  "model": "wiki.wikiplace",
+  "pk": 2,
+  "fields": {
+    "shop_name": "명동닭한마리",
+    "ai_summation": null,
+    "ai_summation_info": {},
+    "basic_information": null,
+    "basic_information_info": {},
+    "kakao_place_id": null,
+    "google_place_id": "ChIJm2URG_CifDURUDlu9E-r2Uw",
+    "average_review_score": "4.60",
+    "total_review_count": 1,
+    "created_at": "2025-08-22T10:37:55.361Z",
+    "updated_at": "2025-08-22T10:37:55.362Z",
+    "ai_summary_updated_at": null
+  }
+},
+{
+  "model": "wiki.wikiplace",
+  "pk": 3,
+  "fields": {
+    "shop_name": "도치피자 장충점",
+    "ai_summation": null,
+    "ai_summation_info": {},
+    "basic_information": null,
+    "basic_information_info": {},
+    "kakao_place_id": null,
+    "google_place_id": "ChIJ1-n1WpGjfDURXAZRqVsy1bE",
+    "average_review_score": "5.00",
+    "total_review_count": 1,
+    "created_at": "2025-08-22T10:39:10.320Z",
+    "updated_at": "2025-08-22T10:39:10.320Z",
+    "ai_summary_updated_at": null
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 1,
+  "fields": {
+    "wiki_place": 1,
+    "review_content": "예약안하면 웨이팅 미쳐요...그치만 맛있음 ㅠ",
+    "review_score": "4.20",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-22T10:37:28.022Z",
+    "like_num": 4
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 2,
+  "fields": {
+    "wiki_place": 2,
+    "review_content": "국물이 따땃해요 근데 복날이라 사람 짱 많더라구용..",
+    "review_score": "4.60",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-22T10:38:19.065Z",
+    "like_num": 2
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 3,
+  "fields": {
+    "wiki_place": 3,
+    "review_content": "여긴 피자도 맛있지만 크림파스타가 정말정말 맛잇답니다",
+    "review_score": "5.00",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-22T10:39:33.315Z",
+    "like_num": 1
+  }
+}
+]

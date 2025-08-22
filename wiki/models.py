@@ -265,7 +265,7 @@ class Review(models.Model):
         verbose_name_plural = "리뷰들"
 
     def __str__(self):
-        return f"리뷰: {self.place.name} - {self.review_score}점"
+        return f"리뷰: {self.wiki_place} - {self.review_score}점"
 
 ##################################################################################################
 class Report(models.Model):
