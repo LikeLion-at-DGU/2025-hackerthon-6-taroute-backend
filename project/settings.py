@@ -38,7 +38,7 @@ SECRET_KEY = 'django-insecure-lsit9-abu#q2+_(&s)&cyff$qcve$6uu2z6zb5vwhq&)qmvp(q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['api.sein0327.shop','sein0327.shop', 'www.sein0327.shop', 'localhost', '127.0.0.1', '15.164.26.158']
+ALLOWED_HOSTS = ['api.taroute.com', 'www.taroute.com','api.sein0327.shop','sein0327.shop', 'www.sein0327.shop', 'localhost', '127.0.0.1', '15.164.26.158']
 
 
 # Application definition
@@ -175,7 +175,9 @@ CORS_ALLOWED_ORIGINS = [ #API 호출할 수 있는 출처 목록
   "http://localhost:5173",
   "https://sein0327.shop",
   "https://api.sein0327.shop",
-  "https://taroute.netlify.app"
+  "https://taroute.netlify.app",
+  "https://api.taroute.com",
+  "https://www.taroute.com",
 ]
 
 CSRF_TRUSTED_ORIGINS = [ #CSRF 토큰 검증 통과
@@ -184,7 +186,9 @@ CSRF_TRUSTED_ORIGINS = [ #CSRF 토큰 검증 통과
   "http://localhost:5173",
   "https://sein0327.shop",
   "https://api.sein0327.shop",
-  "https://taroute.netlify.app"
+  "https://taroute.netlify.app",
+  "https://api.taroute.com",
+  "https://www.taroute.com",
 ]
 CORS_ALLOW_CREDENTIALS = True #HTTP 자격증명 추가
 CSRF_COOKIE_SECURE = True #운영서버에서 True로 킬 것, http 보안!
