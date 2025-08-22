@@ -1,4 +1,5 @@
 import re
+from urllib import response
 from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -123,12 +124,26 @@ class PlaceViewSet(viewsets.ViewSet):
         request.session['saved_places'][place_id] = data
         request.session.modified = True  # 세션 변경사항 저장
         data["session_key"] = session_key
-        return Response({"data": data, "session_key":session_key, "message": "장소가 성공적으로 저장되었습니다."}, status=200)
+        response.set_cookie('sessionid', session_key, httponly=False, samesite='Lax')
+
+        Response({"data": data, "session_key":session_key, "message": "장소가 성공적으로 저장되었습니다."}, status=200)
+    
+        response.set_cookie(
+        'sessionid', 
+        session_key, 
+        max_age=86400,  # 24시간 (초 단위)
+        httponly=False, 
+        samesite='Lax'
+        )
 
     except requests.RequestException as e:
         return Response({"detail": f"구글 API 호출 실패: {e}"}, status=502)
     except Exception as e:
         return Response({"detail": f"오류 발생: {str(e)}"}, status=400)
+
+    return response
+
+    
 
   @extend_schema(
     tags = ["🔥메인페이지"], 
