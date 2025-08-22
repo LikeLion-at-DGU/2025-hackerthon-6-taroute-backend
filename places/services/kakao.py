@@ -96,10 +96,10 @@ def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
                     radius = 500
                 )
 
-                photos = res[0].get("place_photos", []) # 구글 사진 추가
+                photos = list(res[0].get("place_photos", []))[:1]  # set을 리스트로 변환 후 첫 번째 항목만 가져오기, # 구글 사진 추가
                 review_count = res[0].get("review_count", 0) # 구글 리뷰 개수 추가
-                p["place_photos"] = list(photos)
-                p["review_count"] = review_count
+                p["place_photos"] = photos
+
             except requests.RequestException:
                 p["place_photos"] = []
                 p["review_count"] = 0

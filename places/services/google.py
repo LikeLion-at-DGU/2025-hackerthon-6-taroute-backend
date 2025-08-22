@@ -108,7 +108,7 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
         except PopularKeyward.DoesNotExist:
             pass
 
-        photos = p.get("photos", [])
+        photos = p.get("photos", [])[:1]
         place_photos = {
             build_photo_url(p["name"], max_width_px=800)
             for p in photos
