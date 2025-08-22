@@ -19,6 +19,13 @@ def _headers():
         "X-Goog-FieldMask": "places.displayName,places.id,places.userRatingCount,places.nationalPhoneNumber,places.location,places.regularOpeningHours,places.rating,places.photos,places.priceRange,places.formattedAddress,places.types,places.reviews,places.priceLevel",
     }
 
+# 사진 URL 생성
+def build_photo_url(photo_name: str, max_width_px: int = 800) -> str:
+    return (
+        f"https://places.googleapis.com/v1/{photo_name}/media"
+        f"?key={settings.GOOGLE_API_KEY}&maxWidthPx={max_width_px}"
+    )
+
 def search_place(place_name, latitude, longitude, radius, rankPreference=None, priceLevel=None):
     
     body = {
@@ -64,6 +71,13 @@ def search_place(place_name, latitude, longitude, radius, rankPreference=None, p
         else:
             time = times.format_running(running_time)
 
+        photos = p.get("photos", [])[:1]
+        place_photos = {
+            build_photo_url(p["name"], max_width_px=800)
+            for p in photos
+            if p.get("name")
+        }
+
         # 거리 계산 (사용자 위치가 있는 경우)
         user_latitude = latitude
         user_longitude = longitude
@@ -87,18 +101,12 @@ def search_place(place_name, latitude, longitude, radius, rankPreference=None, p
             "click_num": click_num, #[인기순정렬]
             "review_count": review_count, #[후기순정렬]
             "running_time" : time,
-            "distance_text" : distance_text
+            "distance_text" : distance_text,
+            "place_photos":place_photos
         })
         # 후기순정렬은 후기 많은 순으로!
     
     return google_place
-
-# 사진 URL 생성
-def build_photo_url(photo_name: str, max_width_px: int = 800) -> str:
-    return (
-        f"https://places.googleapis.com/v1/{photo_name}/media"
-        f"?key={settings.GOOGLE_API_KEY}&maxWidthPx={max_width_px}"
-    )
 
 # 프론트로부터 place_id를 받고 세부 데이터 응답
 def search_detail(place_id):
