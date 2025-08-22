@@ -10,11 +10,13 @@ from django.conf.urls.static import static
 
 from .views import WikiViewSet
 from .review_views import WikiReviewViewSet, WikiReportViewSet
+from .debug_views import ReviewCrawlerDebugViewSet
+from .test_crawling_only import CrawlingOnlyTestViewSet
 
 app_name = "wiki"
 
 # 메인 위키 라우터 (검색, 상세정보)
-default_router = routers.SimpleRouter(trailing_slash=False)
+default_router = routers.SimpleRouter(trailing_slash=True)
 default_router.register("", WikiViewSet, basename="wiki")
 
 # wiki_router = routers.SimpleRouter(trailing_slash=False)
@@ -27,6 +29,14 @@ review_router.register("reviews", WikiReviewViewSet, basename="wiki-reviews")
 # 신고 라우터  
 report_router = routers.SimpleRouter(trailing_slash=False)
 report_router.register("reports", WikiReportViewSet, basename="wiki-reports")
+
+# 디버깅 라우터 (크롤링 테스트용)
+debug_router = routers.SimpleRouter(trailing_slash=True)
+debug_router.register("debug", ReviewCrawlerDebugViewSet, basename="wiki-debug")
+
+# 크롤링 전용 라우터 (AI 요약 없이)
+crawling_router = routers.SimpleRouter(trailing_slash=True)
+crawling_router.register("crawling", CrawlingOnlyTestViewSet, basename="wiki-crawling")
 
 urlpatterns = [
     # 위키 메인 기능 (검색, 상세정보, 인기검색어)
@@ -45,7 +55,19 @@ urlpatterns = [
     # POST /reports - 3.2.3 후기 신고
     path("", include(report_router.urls)),
     
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # 디버깅 기능 (크롤링 테스트)
+    # GET /debug/test_google_reviews - 구글맵 리뷰 크롤링 테스트 
+    # GET /debug/test_full_crawling_summary - 구글맵 리뷰 크롤링 + AI 요약 테스트
+    path("", include(debug_router.urls)),
+    
+    # 크롤링 전용 기능 (AI 요약 없이)
+    # GET /crawling/test_crawling_data_only - 크롤링 데이터만 확인
+    path("", include(crawling_router.urls)),
+    
+]
+
+# Media files는 메인 project/urls.py에서 처리
+# + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 """
 API 엔드포인트 정리:

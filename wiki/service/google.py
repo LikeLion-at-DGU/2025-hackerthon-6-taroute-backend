@@ -1,10 +1,13 @@
 from django.conf import settings
 import requests
+import logging
 
 from core import times
 from core.distance import calculate_distance
 from places.models import PopularKeyward
 from wiki.models import WikiPlace
+
+logger = logging.getLogger(__name__)
 
 BASE = "https://places.googleapis.com/v1/places"
 
@@ -135,3 +138,60 @@ def search_detail(place_id):
     }
 
     return search_details
+
+
+def get_google_reviews(place_id, limit=10):
+    """구글 Places API에서 특정 장소의 리뷰를 가져오는 함수
+    
+    Args:
+        place_id (str): 구글 place ID
+        limit (int): 가져올 리뷰 수 (기본 10개)
+    
+    Returns:
+        dict: {"reviews": [리뷰 텍스트 리스트], "ratings": [별점 리스트], "average_rating": 평균별점}
+    """
+    try:
+        # 구글 Places API에서 리뷰 포함하여 장소 정보 조회
+        params = {
+            "languageCode": "ko",
+            "regionCode": "KR", 
+            "fields": "id,displayName,reviews",
+        }
+        
+        r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=10)
+        r.raise_for_status()
+        
+        data = r.json()
+        reviews_data = data.get("reviews", [])
+        
+        # 리뷰 텍스트와 별점 추출 (빈 리뷰는 제외)
+        review_texts = []
+        review_ratings = []
+        
+        for review in reviews_data[:limit]:
+            text_data = review.get("text", {})
+            review_text = text_data.get("text", "").strip()
+            review_rating = review.get("rating", 0)  # 별점 (1-5)
+            
+            if review_text and len(review_text) >= 10:  # 최소 10자 이상인 리뷰만
+                review_texts.append(review_text)
+                review_ratings.append(review_rating)
+        
+        # 평균 별점 계산
+        average_rating = round(sum(review_ratings) / len(review_ratings), 1) if review_ratings else 0
+        
+        logger.info(f"구글 리뷰 {len(review_texts)}개 수집 완료 (평균별점: {average_rating}) (장소ID: {place_id})")
+        
+        return {
+            "reviews": review_texts,
+            "ratings": review_ratings, 
+            "average_rating": average_rating,
+            "review_count": len(review_texts)
+        }
+        
+    except requests.RequestException as e:
+        logger.error(f"구글 리뷰 수집 실패 (장소ID: {place_id}): {e}")
+        return {"reviews": [], "ratings": [], "average_rating": 0, "review_count": 0}
+    except Exception as e:
+        logger.error(f"구글 리뷰 처리 중 오류 (장소ID: {place_id}): {e}")
+        return {"reviews": [], "ratings": [], "average_rating": 0, "review_count": 0}

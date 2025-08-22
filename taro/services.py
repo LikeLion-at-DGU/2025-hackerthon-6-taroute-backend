@@ -63,7 +63,7 @@ class TaruAIService:
         
         try:
             response = self._client.chat.completions.create(
-                model="gpt-5",
+                model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=200,
                 temperature=0.7
@@ -136,7 +136,7 @@ D) [선택지4] (필요시)"
         
         try:
             response = self._client.chat.completions.create(
-                model="gpt-5",
+                model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=300,
                 temperature=0.8
@@ -199,7 +199,7 @@ JSON 형태로만 응답해주세요:
         
         try:
             response = self._client.chat.completions.create(
-                model="gpt-5",
+                model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=200,
                 temperature=0.3  # 분석에서는 일관성이 중요
@@ -268,7 +268,7 @@ JSON 형태로만 응답해주세요:
         
         try:
             response = self._client.chat.completions.create(
-                model="gpt-5",
+                model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=250,
                 temperature=0.7

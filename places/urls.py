@@ -2,9 +2,6 @@ from django.urls import path, include
 from rest_framework import routers
 from .views import *
 
-from django.conf.urls.static import static
-from django.conf import settings
-
 app_name = "places"
 
 default_router = routers.SimpleRouter(trailing_slash=False)
@@ -20,4 +17,7 @@ urlpatterns = [
     path("", include(default_router.urls)),
     path("", include(route_router.urls)),   
     path("", include(chat_router.urls)),
-] + static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)
+]
+
+# Media files는 메인 project/urls.py에서 처리하므로 여기서는 제거
+# + static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)

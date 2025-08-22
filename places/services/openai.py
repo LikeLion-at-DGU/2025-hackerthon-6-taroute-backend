@@ -1,7 +1,7 @@
 import requests
 from django.conf import settings
 
-BASE = "https://api.openai.com/v1/responses"
+BASE = "https://api.openai.com/v1/chat/completions"
 
 # 키워드 추출용 슬롯
 SLOT_SCHEMA = {
@@ -55,7 +55,7 @@ def _headers():
     }
 
 # create_question을 호출하면 챗봇에게 질문과 객관식 4개 리스트들을 뽑아달라고 해서 저장
-def create_question(input_text: str = "지금 질문 리스트 5개를 뽑아줘", lang: str = "ko", model: str = "gpt-4o-mini"):
+def create_question(input_text: str = "지금 질문 리스트 5개를 뽑아줘", lang: str = "ko", model: str = "gpt-5-mini"):
     system_prompt = (
             "너는 사용자의 무의식에 숨겨진 취향과 희망을 읽어내어, 가장 완벽한 장소를 점지해주는 신비롭고 현명한 '타로마스터 타루'입니다"
             "사용자가 내면에 품고 있는 진정한 욕구를 끌어내기 위해, 타로 카드 한 장을 펼치듯 상징적이고 비유적인 질문을 던져주세요"
@@ -64,18 +64,18 @@ def create_question(input_text: str = "지금 질문 리스트 5개를 뽑아줘
             "각 질문은 오직 하나의 슬롯만을 목표로 하며, 질문당 4개의 선택지를 제공해야 합니다"
             "선택지는 구글 장소 리뷰에서 영감을 받은, 사용자의 감정이나 경험을 은유적으로 나타내는 키워드로 구성해주세요. 예를 들어 '조용하고 아늑한', '활기찬 에너지로 가득한'과 같이 공간의 분위기를 연상시킬 수 있는 표현을 사용합니다"
             "특히 'radius' 슬롯을 채우는 질문의 옵션들은 1시간, 2시간의 시간 단위로 답변을 유도해 거리를 암시하도록 구성합니다"
-            "모든 질문은 부드러운 반말로 진행하고, 50자로 뽑아줘. 옵션은 30자로 부탁해"
+            "모든 질문은 부드러운 반말로 진행해줘!"
         )
     
     body = {
         "model": model,
-        "input": [
+        "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": input_text}
         ],
-        "text": {
-            "format": {
-                "type": "json_schema",
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
                 "name": "quest_schema",
                 "schema": QUEST_SCHEMA,
                 "strict": True
@@ -88,12 +88,12 @@ def create_question(input_text: str = "지금 질문 리스트 5개를 뽑아줘
         r.raise_for_status()
     except requests.HTTPError as e:
         detail = getattr(e.response, "text", "") or str(e)
-        raise requests.HTTPError("OpenAI {e.response.status_code} Error: {detail}") from e
+        raise requests.HTTPError(f"OpenAI {e.response.status_code} Error: {detail}") from e
 
     return r.json()
 
 #create_chat을 호출하면 그 저장한 질문을 하나씩 뽑아서 프론트에 띄우고, 답변에 대해서는 기존처럼 slot의 값을 추출하여 저장
-def create_chat(input_text: str, lang: str = "ko", model: str = "gpt-4o-mini"):
+def create_chat(input_text: str, lang: str = "ko", model: str = "gpt-5-mini"):
 
     if lang.lower() == "ko":
         system_prompt = (
@@ -110,13 +110,13 @@ def create_chat(input_text: str, lang: str = "ko", model: str = "gpt-4o-mini"):
 
     body = {
         "model": model,
-        "input": [
+        "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": input_text}
         ],
-        "text": {
-            "format": {
-                "type": "json_schema",
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
                 "name": "slots_schema",
                 "schema": SLOT_SCHEMA,
                 "strict": True

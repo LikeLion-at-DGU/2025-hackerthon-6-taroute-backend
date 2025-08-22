@@ -332,7 +332,7 @@ def search_category_places(
         category: 카테고리 ("restaurant", "cafe", "culture", "tourist_attraction", "all")
         x, y: 검색 중심 좌표
         radius: 기본 검색 반경
-        distance_filter: 거리 필터 ("1km", "3km", "5km", "5km_plus", "all")
+        distance_filter: 거리 필터 ("500m", "1km", "3km", "5km", "all")
         visit_time_filter: 방문시간 필터 ("morning", "afternoon", "evening", "night", "dawn", "all")
         visit_days_filter: 방문요일 필터 (리스트)
         sort_by: 정렬 기준 ("distance", "relevance", "rating", "popularity")
@@ -342,15 +342,15 @@ def search_category_places(
         필터링된 장소 리스트
     """
     
-    # 거리 필터에 따른 반경 조정
-    if distance_filter == "1km":
+    # 거리 필터에 따른 반경 조정 (500m 추가, 5km 이상 제거)
+    if distance_filter == "500m":
+        search_radius = 500
+    elif distance_filter == "1km":
         search_radius = 1000
     elif distance_filter == "3km":
         search_radius = 3000
     elif distance_filter == "5km":
         search_radius = 5000
-    elif distance_filter == "5km_plus":
-        search_radius = radius  # 기본값 사용하고 나중에 5km 이상만 필터링
     else:
         search_radius = radius
     
@@ -401,11 +401,7 @@ def search_category_places(
             # 기본 정보 추출
             place_data = _extract_place_data(p, x, y)
             
-            # 거리 필터 적용 (5km 이상인 경우만)
-            if distance_filter == "5km_plus":
-                place_distance = float(place_data.get("distance_km", 0))
-                if place_distance < 5.0:
-                    continue
+            # 거리 필터 적용 (5km_plus 옵션 제거됨)
             
             # 영업시간 관련 필터 적용
             if visit_time_filter != "all" or visit_days_filter:
