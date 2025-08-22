@@ -136,7 +136,7 @@ D) [선택지4] (필요시)"
         
         try:
             response = self._client.chat.completions.create(
-                model="gpt-5-mini",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=300,
                 temperature=0.8
