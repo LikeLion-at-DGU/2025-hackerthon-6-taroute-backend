@@ -1,5 +1,5 @@
 import re
-from urllib import response
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -124,17 +124,16 @@ class PlaceViewSet(viewsets.ViewSet):
         request.session['saved_places'][place_id] = data
         request.session.modified = True  # 세션 변경사항 저장
         data["session_key"] = session_key
+        # Response 객체 대신 딕셔너리 사용
+        response_data = {"data": data, "session_key": session_key, "message": "장소가 성공적으로 저장되었습니다."}
+
+        # JsonResponse 사용
+        from django.http import JsonResponse
+        response = JsonResponse(response_data, status=200)
+
+        # 쿠키 설정
         response.set_cookie('sessionid', session_key, httponly=False, samesite='Lax')
 
-        Response({"data": data, "session_key":session_key, "message": "장소가 성공적으로 저장되었습니다."}, status=200)
-    
-        response.set_cookie(
-        'sessionid', 
-        session_key, 
-        max_age=86400,  # 24시간 (초 단위)
-        httponly=False, 
-        samesite='Lax'
-        )
 
     except requests.RequestException as e:
         return Response({"detail": f"구글 API 호출 실패: {e}"}, status=502)
