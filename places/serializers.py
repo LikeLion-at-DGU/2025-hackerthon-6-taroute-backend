@@ -5,7 +5,7 @@ from .models import PopularKeyward
 class PlaceMixin(serializers.Serializer):
     x = serializers.FloatField()   # 경도
     y = serializers.FloatField()   # 위도
-    radius = serializers.IntegerField(required=False, default=2000)
+    radius = serializers.IntegerField(required=False)
 
 class PlaceSearchSerializer(PlaceMixin):
     q = serializers.CharField(source="text_query")  # API에 넘길 키 이름 매핑
@@ -51,13 +51,13 @@ class CategorySearchSerializer(PlaceMixin):
         help_text="카테고리 필터"
     )
     
-    # 거리 필터 (500m 추가, 5km 이상 제거)
+    # 거리 필터
     distance_filter = serializers.ChoiceField(
         choices=[
-            ("500m", "500m 이내"),
             ("1km", "1km 이내"),
             ("3km", "3km 이내"),
             ("5km", "5km 이내"),
+            ("5km_plus", "5km 이상"),
             ("all", "전체")
         ],
         default="all",
