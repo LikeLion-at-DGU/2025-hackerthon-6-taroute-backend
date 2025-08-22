@@ -94,18 +94,26 @@ def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
                     text_query = p["place_name"],
                     x = float(p["x"]),
                     y = float(p["y"]),
-                    radius = 500
+                    radius = 2000
                 )
 
-                photos = list(res[0].get("place_photos", []))[:1]  # set을 리스트로 변환 후 첫 번째 항목만 가져오기, # 구글 사진 추가
-                review_count = res[0].get("review_count", 0) # 구글 리뷰 개수 추가
-                p["place_photos"] = photos
+                if res:  # 결과가 있는 경우만
+                    place_info = res[0]
+                    photos = list(place_info.get("place_photos", []))[:1]  # set을 리스트로 변환 후 첫 번째 항목만 가져오기, # 구글 사진 추가
+                    p["place_photos"] = photos
 
-            except requests.RequestException:
+                    print(f"data: {p}")
+
+                    p["review_count"] = res[0].get("review_count", 0) # 구글 리뷰 개수 추가
+                    p["place_id"] = res[0].get("place_id", "") # 구글 장소 ID 추가
+
+            except (requests.RequestException, IndexError) as e:
+                p["place_id"] = ""
                 p["place_photos"] = []
                 p["review_count"] = 0
-    
+
         results[CATEGORY_LABELS[code]] = places
+        
 
     # 단일 카테고리인 경우 해당 결과만 반환
     if len(codes) == 1:
@@ -125,7 +133,7 @@ def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
             
             if i < len(category_places):  # i번째 장소가 있는 경우
                 place = category_places[i].copy()
-                place["category"] = category_name  # 카테고리 정보 추가
+                # place["category"] = category_name  # 카테고리 정보 추가
                 mixed_results.append(place)
     
     return mixed_results
