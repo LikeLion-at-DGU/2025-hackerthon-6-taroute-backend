@@ -110,7 +110,7 @@ def openai_summary(input_text:str, lang: str = "ko", model: str = "gpt-5-mini"):
             "please create a summary that helps understand this place at a glance. "
 
             "Summary writing rules are as follows:\n"
-            "1. Write within 200 characters, in one paragraph\n"
+            "1. Write within 100 characters, in one paragraph\n"
             "2. Emphasize the characteristics, atmosphere, and main attraction points of the place\n"
             "3. Include useful information (price, location, convenience, etc.) that visitors should know, if available\n"
             "4. Maintain a polite and friendly tone\n"
@@ -123,11 +123,12 @@ def openai_summary(input_text:str, lang: str = "ko", model: str = "gpt-5-mini"):
             "이 장소를 한눈에 이해할 수 있는 요약문을 작성하세요. "
 
             "요약 작성 규칙은 다음과 같습니다:\n"
-            "1. 글자 수는 200자 이내, 한 문단으로 작성\n"
+            "1. 반드시 글자 수는 100자가 넘지 않게, 한 문단으로 작성\n"
             "2. 장소의 특징, 분위기, 주요 매력 포인트를 강조\n"
-            "3. 방문자가 알아야 할 유용한 정보(가격·위치·편의 등)가 있다면 간단히 포함\n"
+            "3. 방문자가 알아야 할 유용한 정보(가격·위치·편의 등)가 있다면 최소한으로 포함\n"
             "4. 정중하고 친근한 톤을 유지\n"
             "5. 과장되거나 주관적인 광고성 표현은 피하고, 객관적이고 균형 잡힌 시각으로 작성"
+            "6. 글자 수를 세어보고 100자를 초과하면 더 짧게 다시 작성하세요"
         )
     
     body = {
@@ -197,7 +198,7 @@ def create_crawled_reviews_summary(place_name, google_reviews=None, blog_reviews
                 
                 f"Summary writing rules:\n"
                 f"1. Must start with '{place_name} is'\n"
-                f"2. Write within 250 characters, but don't miss key information\n"
+                f"2. Write within 100 characters, but don't miss key information\n"
                 f"3. Prioritize the following elements:\n"
                 f"   - Food/service taste and quality\n"
                 f"   - Atmosphere and interior\n"
@@ -217,7 +218,7 @@ def create_crawled_reviews_summary(place_name, google_reviews=None, blog_reviews
                 
                 f"요약 작성 규칙:\n"
                 f"1. 반드시 '{place_name}은' 또는 '{place_name}는'으로 시작하세요\n"
-                f"2. 250자 이내로 작성하되, 핵심 정보는 빠뜨리지 마세요\n"
+                f"2. 100자 이내로 간결하게 작성하되, 핵심 정보는 빠뜨리지 마세요\n"
                 f"3. 다음 요소들을 우선적으로 포함:\n"
                 f"   - 음식/서비스의 맛과 품질\n"
                 f"   - 분위기와 인테리어\n"
@@ -227,6 +228,7 @@ def create_crawled_reviews_summary(place_name, google_reviews=None, blog_reviews
                 f"4. 객관적이고 균형 잡힌 톤으로 작성\n"
                 f"5. 과장된 표현보다는 실제 방문자들의 생생한 경험을 중심으로 서술\n"
                 f"6. 만약 부정적인 의견도 있다면 균형있게 언급"
+                f"7. 글자 수를 세어보고 100자를 초과하면 더 짧게 다시 작성하세요"
             )
             user_content = f"장소명: {place_name}\n\n구글맵에서 수집된 실제 방문객 리뷰들:\n{input_text}"
         
