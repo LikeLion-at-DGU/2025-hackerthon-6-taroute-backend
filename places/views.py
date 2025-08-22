@@ -11,7 +11,7 @@ import networkx as nx
 
 
 
-from .models import PopularKeyward, Place, RouteSnapshot
+from .models import PopularKeyward, Place
 
 from .serializers import *
 from .services import kakao, tmap, google, openai, tsp_route
@@ -122,6 +122,7 @@ class PlaceViewSet(viewsets.ViewSet):
                 
         request.session['saved_places'][place_id] = data
         request.session.modified = True  # 세션 변경사항 저장
+        data["session_key"] = session_key
         return Response({"data": data, "session_key":session_key, "message": "장소가 성공적으로 저장되었습니다."}, status=200)
 
     except requests.RequestException as e:

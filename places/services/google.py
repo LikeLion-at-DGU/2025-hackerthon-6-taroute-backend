@@ -154,7 +154,7 @@ def search_detail(place_id):
     r.raise_for_status()
     p = r.json()
 
-    photos = p.get("photos", [])
+    photos = p.get("photos", [])[:1]
     place_photos = {
         build_photo_url(p["name"], max_width_px=800)
         for p in photos
