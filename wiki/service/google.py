@@ -40,7 +40,7 @@ def search_place(place_name, latitude, longitude, radius, rankPreference=None, p
             }
         },
     }
-    r = requests.post(f"{BASE}:searchText", headers=_headers(), json=body, timeout=5)
+    r = requests.post(f"{BASE}:searchText", headers=_headers(), json=body, timeout=15)
     r.raise_for_status()
 
     data = r.json()
@@ -115,7 +115,7 @@ def search_detail(place_id):
         "regionCode": "KR",
         "fields": "id,displayName,formattedAddress,location,regularOpeningHours,photos",
     }
-    r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=5)
+    r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=15)
     r.raise_for_status()
     p = r.json()
 
@@ -166,7 +166,7 @@ def get_google_reviews(place_id, limit=10):
             "fields": "id,displayName,reviews",
         }
         
-        r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=10)
+        r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=20)
         r.raise_for_status()
         
         data = r.json()

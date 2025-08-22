@@ -64,7 +64,7 @@ def _search_category(category, x, y, radius, size=10):
         "radius": radius,
         "size":size,
     }
-    r = requests.get(f"{LOCAL}/search/category.json", headers=_headers(), params=params, timeout=5)
+    r = requests.get(f"{LOCAL}/search/category.json", headers=_headers(), params=params, timeout=15)
     r.raise_for_status()
     places = (r.json() or {}).get("documents", [])
 
@@ -77,9 +77,10 @@ def _search_category(category, x, y, radius, size=10):
 def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
     if not category_group_code or category_group_code == "all":
         codes = CATEGORY
-        limit = 3 #검색창 하단 카테고리 추천 수 제한
+        limit = 2 #검색창 하단 카테고리 추천 수 제한
     else:
-        codes = [category_group_code] #카테고리 페이지에서는 10개씩 default
+        codes = [category_group_code] #카테고리 페이지에서는 3개씩
+        limit = 3
 
     # 카테고리별 결과 검색
     results = {}
@@ -106,8 +107,28 @@ def recommend_place(x, y, radius=2000, category_group_code=None, limit=7):
     
         results[CATEGORY_LABELS[code]] = places
 
-    # 단일 카테고리인 경우 해당 결과만 반환, 아니면 전체 결과 반환
-    return results[CATEGORY_LABELS[codes[0]]] if len(codes) == 1 else results
+    # 단일 카테고리인 경우 해당 결과만 반환
+    if len(codes) == 1:
+        return results[CATEGORY_LABELS[codes[0]]]
+    
+    # 전체 카테고리인 경우: 음식점, 카페, 문화시설, 관광명소 순서로 섞어서 반환
+    mixed_results = []
+    
+    # 원하는 순서: 음식점(FD6), 카페(CE7), 문화시설(CT1), 관광명소(AT4)
+    category_order = ["FD6", "CE7", "CT1", "AT4"]
+    
+    # 각 카테고리에서 최대 2개씩 가져와서 순서대로 섞기
+    for i in range(2):  # 0, 1 (각 카테고리에서 첫 번째, 두 번째)
+        for code in category_order:
+            category_name = CATEGORY_LABELS[code]
+            category_places = results.get(category_name, [])
+            
+            if i < len(category_places):  # i번째 장소가 있는 경우
+                place = category_places[i].copy()
+                place["category"] = category_name  # 카테고리 정보 추가
+                mixed_results.append(place)
+    
+    return mixed_results
 
 # 6.2 AI 루트 추천 관련 카테고리 검색
 def look_category(q, x, y, radius, size=1):
@@ -118,7 +139,7 @@ def look_category(q, x, y, radius, size=1):
         "radius": radius,
         "size":size,
     }
-    r = requests.get(f"{LOCAL}/search/keyword.json", headers=_headers(), params=params, timeout=5)
+    r = requests.get(f"{LOCAL}/search/keyword.json", headers=_headers(), params=params, timeout=15)
     r.raise_for_status()
     data = (r.json() or {}).get("documents", [])
     

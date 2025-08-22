@@ -383,12 +383,12 @@ class ChatViewSet(viewsets.ViewSet):
     except requests.RequestException as e:
         return Response({"detail": f"openAI API 호출 실패: {e}"}, status=502)
   
-    text = ""
-    for block in data.get("output", []):
-        for c in block.get("content", []):
-            text += c.get("text", "")
-
-    parsed_text = json.loads(text).get("questions")
+    # OpenAI API 응답에서 실제 JSON 내용 추출
+    try:
+        content = data["choices"][0]["message"]["content"]
+        parsed_text = json.loads(content).get("questions")
+    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        return Response({"detail": f"OpenAI 응답 파싱 실패: {e}"}, status=500)
 
     session = {"questions": parsed_text}
     request.session["taru_chat"] = session
@@ -423,12 +423,12 @@ class ChatViewSet(viewsets.ViewSet):
     except requests.RequestException as e:
         return Response({"detail": f"openAI API 호출 실패: {e}"}, status=502)
     
-    text = ""
-    for block in data.get("output", []):
-        for c in block.get("content", []):
-            text += c.get("text", "")
-
-    parsed_text = json.loads(text)
+    # OpenAI API 응답에서 실제 JSON 내용 추출
+    try:
+        content = data["choices"][0]["message"]["content"]
+        parsed_text = json.loads(content)
+    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        return Response({"detail": f"OpenAI 응답 파싱 실패: {e}"}, status=500)
     
     # 세션에 저장
     taru_chat = request.session.get("taru_chat", {})
@@ -442,6 +442,7 @@ class ChatViewSet(viewsets.ViewSet):
         chats_radius   = s.get("radius", 0)
 
         # chats_radius에서 숫자를 추출하여 거리 계산
+        radius = 2000  # 기본값 설정
         if isinstance(chats_radius, str):
             numbers = re.findall(r'\d+', chats_radius)
             if numbers:
@@ -450,10 +451,8 @@ class ChatViewSet(viewsets.ViewSet):
                     radius = value * 12000 # 1시간=12km=12000m
                 elif "분" in chats_radius:
                     radius = value / 60 * 12000
-            else:
-                radius = 2000  # 숫자를 찾지 못한 경우
-        else:
-            radius = 2000  # 문자열이 아닌 경우
+                else:
+                    radius = value * 1000  # km 단위로 가정 (3km -> 3000m)
         print(f"radius {radius}")
         places = google.search_slot(x=x, y=y, radius=radius)
 

@@ -83,7 +83,7 @@ def create_question(input_text: str = "지금 질문 리스트 5개를 뽑아줘
         }
     }
 
-    r = requests.post(BASE, headers=_headers(), json=body, timeout=15)
+    r = requests.post(BASE, headers=_headers(), json=body, timeout=(10, 120))
     try:
         r.raise_for_status()
     except requests.HTTPError as e:
@@ -124,7 +124,7 @@ def create_chat(input_text: str, lang: str = "ko", model: str = "gpt-5-mini"):
         }
     }
 
-    r = requests.post(BASE, headers=_headers(), json=body, timeout=15)
+    r = requests.post(BASE, headers=_headers(), json=body, timeout=(10, 120))
     try:
         r.raise_for_status()
     except requests.HTTPError as e:
