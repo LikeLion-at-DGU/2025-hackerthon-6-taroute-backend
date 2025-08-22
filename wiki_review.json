@@ -1,0 +1,158 @@
+[
+{
+  "model": "wiki.review",
+  "pk": 1,
+  "fields": {
+    "wiki_place": 3,
+    "review_content": "여긴 크림파스타가 레전드에요. 진짜 꼭 머거야함",
+    "review_score": "4.90",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-18T10:39:23.505Z",
+    "like_num": 2
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 2,
+  "fields": {
+    "wiki_place": 3,
+    "review_content": "피자도 진짜진짜 맛있음!! 꼭 여럿이서 와서 여러가지 메뉴 다 맛보시길",
+    "review_score": "3.90",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-18T11:39:41.704Z",
+    "like_num": 1
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 3,
+  "fields": {
+    "wiki_place": 4,
+    "review_content": "이탈리안 비엠티가 진짜진짜 맛있어요 간편하고 든든하고 알참",
+    "review_score": "4.50",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-18T16:32:02.250Z",
+    "like_num": 6
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 4,
+  "fields": {
+    "wiki_place": 4,
+    "review_content": "근데 이탈리안 비엠티 먹을때는 렌치 스위트칠리가.... 맛있긴 해 플랫브래드가 필수긴 해",
+    "review_score": "5.00",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-18T16:32:41.585Z",
+    "like_num": 5
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 5,
+  "fields": {
+    "wiki_place": 5,
+    "review_content": "요기가 어딘지 모르겟지만 일단 맛있다구 해",
+    "review_score": "5.00",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-18T16:33:07.490Z",
+    "like_num": 0
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 6,
+  "fields": {
+    "wiki_place": 5,
+    "review_content": "요기가 어딘지 모르겟지만 일단 맛있다구 해22",
+    "review_score": "5.00",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-18T16:33:13.755Z",
+    "like_num": 0
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 7,
+  "fields": {
+    "wiki_place": 5,
+    "review_content": "요기가 어딘지 모르겟지만 일단 맛있다구 해33",
+    "review_score": "5.00",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-18T16:33:20.116Z",
+    "like_num": 0
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 8,
+  "fields": {
+    "wiki_place": 7,
+    "review_content": "여럿이서 훠궈 즐기기 조음! 토마토탕이 진짜 맛나용",
+    "review_score": "4.20",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-18T16:36:53.051Z",
+    "like_num": 6
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 9,
+  "fields": {
+    "wiki_place": 7,
+    "review_content": "예약안하면 웨이팅 진짜 미쳐요",
+    "review_score": "3.50",
+    "review_image": "",
+    "session_key": "",
+    "created_at": "2025-08-18T16:37:15.680Z",
+    "like_num": 0
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 10,
+  "fields": {
+    "wiki_place": 7,
+    "review_content": "먹는 날만 기다리구 있긴 해... 언제왕",
+    "review_score": "4.20",
+    "review_image": "wiki/ChIJSaOZ2vGifDUR8XJ_u0e9Ir0/lone.jpeg",
+    "session_key": "",
+    "created_at": "2025-08-19T04:15:01.531Z",
+    "like_num": 0
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 11,
+  "fields": {
+    "wiki_place": 7,
+    "review_content": "먹는 날만 기다리구 있긴 해... Ehdhkwh!!",
+    "review_score": "4.20",
+    "review_image": "wiki/ChIJSaOZ2vGifDUR8XJ_u0e9Ir0/lone_nDhTrVt.jpeg",
+    "session_key": "",
+    "created_at": "2025-08-19T04:16:53.502Z",
+    "like_num": 0
+  }
+},
+{
+  "model": "wiki.review",
+  "pk": 12,
+  "fields": {
+    "wiki_place": 3,
+    "review_content": "재방문 의사 아주아주 많습니다!! 또 올게요",
+    "review_score": "4.20",
+    "review_image": "wiki/ChIJ1-n1WpGjfDURXAZRqVsy1bE/스티커.jpg",
+    "session_key": "",
+    "created_at": "2025-08-19T15:46:00.393Z",
+    "like_num": 0
+  }
+}
+]
