@@ -38,7 +38,7 @@ SECRET_KEY = 'django-insecure-lsit9-abu#q2+_(&s)&cyff$qcve$6uu2z6zb5vwhq&)qmvp(q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['sein0327.shop', 'www.sein0327.shop', 'localhost', '127.0.0.1', '15.164.26.158']
+ALLOWED_HOSTS = ['api.sein0327.shop','sein0327.shop', 'www.sein0327.shop', 'localhost', '127.0.0.1', '15.164.26.158']
 
 
 # Application definition
@@ -188,7 +188,7 @@ CSRF_TRUSTED_ORIGINS = [ #CSRF 토큰 검증 통과
 ]
 CORS_ALLOW_CREDENTIALS = True #HTTP 자격증명 추가
 CSRF_COOKIE_SECURE = True #운영서버에서 True로 킬 것, http 보안!
-SESSION_COOKIE_SECURE = False #위와 동일
+SESSION_COOKIE_SECURE = True #위와 동일
 
 SESSION_COOKIE_AGE = 86400  # 초 단위: 24시간 = 86400초
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # 브라우저를 닫아도 세션 유지
