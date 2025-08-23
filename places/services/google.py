@@ -454,29 +454,34 @@ def _extract_place_data(place, center_x, center_y):
     photos = place.get("photos", [])
     place_photos = [
         build_photo_url(photo["name"], max_width_px=400)
-        for photo in photos[:3]  # 최대 3장
+        for photo in photos[:5]
         if photo.get("name")
     ]
     
     # 영업시간 정보 처리
-    opening_hours = place.get("regularOpeningHours", {})
+    # opening_hours = place.get("regularOpeningHours", {})
     is_open_now = place.get("businessStatus") == "OPERATIONAL"
+    running_time = place.get("regularOpeningHours", {})
+    if not running_time:
+        time = "영업시간 정보 없음"
+    else:
+        time = format_running(running_time)
     
     return {
         "place_id": place_id,
         "place_name": place.get("displayName", {}).get("text", ""),
-        "category": category,
+        "distance": f"{distance_km}km",
+        # "category": category,
         "address": place.get("formattedAddress", ""),
         "location": place.get("location", {}),
-        "distance": f"{distance_km}km",
-        "distance_km": distance_km,
-        "rating": place.get("rating", 0.0),
-        "review_count": place.get("userRatingCount", 0),
-        "price_level": _get_price_level(place.get("priceLevel")),
-        "opening_hours": opening_hours,
+        # "distance_km": distance_km,
+        # "rating": place.get("rating", 0.0),
+        # "review_count": place.get("userRatingCount", 0),
+        # "price_level": _get_price_level(place.get("priceLevel")),
+        "running_time": time,
         "is_open_now": is_open_now,
         "place_photos": place_photos,
-        "click_num": click_num
+        # "click_num": click_num
     }
 
 def _classify_category(place_types):
