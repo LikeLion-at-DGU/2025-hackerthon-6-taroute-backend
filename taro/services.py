@@ -136,7 +136,7 @@ D) [선택지4] (필요시)"
         
         try:
             response = self._client.chat.completions.create(
-                model="gpt-5-mini",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=300,
                 temperature=0.8
@@ -268,7 +268,7 @@ JSON 형태로만 응답해주세요:
         
         try:
             response = self._client.chat.completions.create(
-                model="gpt-5-mini",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=250,
                 temperature=0.7
