@@ -9,6 +9,9 @@ from django.contrib.sessions.models import Session
 from rest_framework.permissions import AllowAny
 from django.utils import timezone
 import networkx as nx
+from django.db.models import F
+from .models import RouteSnapshot
+from .serializers import RouteSnapshotCreateSerializer, RouteSnapshotSerializer
 
 
 
@@ -639,73 +642,34 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
         return Response({'error': '세션을 찾을 수 없습니다.'}, status=404)
 
     
-# URL 세션
+# 링크 공유
 ######################################################################
-# class RouteSnapshotViewSet(mixins.CreateModelMixin,
-#                            mixins.RetrieveModelMixin,
-#                            viewsets.GenericViewSet):
-#     queryset = RouteSnapshot.objects.all()
-#     serializer_class = RouteSnapshotSerializer
-#     permission_classes = [AllowAny]
-#     lookup_field = "short"
+@extend_schema(
+        tags = ["🔥동선페이지"],
+        summary="6.3 링크 공유하기",
+        request=RouteSnapshotCreateSerializer,
+        responses={201: RouteSnapshotSerializer}
+    )
+class RouteSnapshotViewSet(mixins.CreateModelMixin,mixins.RetrieveModelMixin,viewsets.GenericViewSet):
+    queryset = RouteSnapshot.objects.all()
+    lookup_field = "short"  # /.../snapshots/{short}/ 로 조회
 
+    def get_serializer_class(self):
+        return RouteSnapshotCreateSerializer if self.action == "create" else RouteSnapshotSerializer
 
-#     @extend_schema(
-#         tags = ["🔥기타페이지"], summary="6.1 등록된 카드의 동선 안내 URL",
-#         request=[RouteSnapshotCreateSerializer],
-#         description="출발지, 도착지 좌표로 경로 안내(POST=자동차, 대중교통, 도보)",
-#     )
-#     def create(self, request, *args, **kwargs):
-#         s = RouteSnapshotCreateSerializer(data=request.data)
-#         s.is_valid(raise_exception=True)
+    def create(self, request, *args, **kwargs):
+        input = self.get_serializer(data=request.data)
+        input.is_valid(raise_exception=True)
+        obj = input.save()
 
-#         # 세션 사용자 식별 정도만 저장(로그인 없음)
-#         session_key = request.session.session_key
-#         if not session_key:
-#             request.session.create()
-#             session_key = request.session.session_key
+        # return 직렬화 (created_at/expires_at/share_url)
+        output = RouteSnapshotSerializer(obj, context=self.get_serializer_context())
+        headers = self.get_success_headers(output.data)
+        return Response(output.data, status=status.HTTP_201_CREATED, headers=headers)
 
-#         # 중복 슬러그 발생 시 재시도
-#         for _ in range(3):
-#             try:
-#                 snap = RouteSnapshot.objects.create(
-#                     session_key=session_key,
-#                     params=s.validated_data["params"],
-#                     result=s.validated_data["result"],
-#                 )
-#                 break
-#             except Exception:
-#                 continue
-
-#         return Response(RouteSnapshotSerializer(snap).data, status=status.HTTP_201_CREATED)
-
-#     def retrieve(self, request, short=None):
-#         snap = self.get_object()
-#         if snap.expires_at and snap.expires_at < timezone.now():
-#             return Response({"detail": "링크가 만료되었습니다."}, status=410)
-#         return Response(RouteSnapshotSerializer(snap).data)
-    
-    # {
-    #     "params": {
-    #         "start": {"name":"중앙대 정문", "x":126.9599, "y":37.5058},
-    #         "end":   {"name":"흑석역 3번출구", "x":126.9639, "y":37.5086},
-    #         "radius": 2000,
-    #         "filters": {"transport":"car", "budget":"~10000", "vibe":"데이트"}
-    #     },
-    #     "result": {
-    #         "time": 6,
-    #         "distance": 1100,
-    #         "cost": 5000,
-    #         "stops": [
-    #         {"idx":1,"name":"선우카페","x":126.9618,"y":37.5066,"eta_min":2},
-    #         {"idx":2,"name":"필동밤","x":126.9627,"y":37.5074,"eta_min":2},
-    #         {"idx":3,"name":"흑석역 3번출구","x":126.9639,"y":37.5086,"eta_min":2}
-    #         ],
-    #         "cards": [
-    #         {"title":"데이트 ☕ → 산책 → 귀가","desc":"따뜻한 라떼 후 캠퍼스 산책"},
-    #         {"title":"대안 루트","desc":"비 오면 카페 2곳"}
-    #         ],
-    #         "polyline": [[126.9599,37.5058],[126.9618,37.5066],[126.9627,37.5074],[126.9639,37.5086]]
-    #     }
-    # }  
-
+    def retrieve(self, request, *args, **kwargs):
+        obj = get_object_or_404(RouteSnapshot, short=kwargs["short"])
+        if obj.is_expired(): # 유효 만료시 예외처리(7일)
+            return Response({"detail": "expired"}, status=status.HTTP_410_GONE)
+        RouteSnapshot.objects.filter(pk=obj.pk).update(view_count=F("view_count") + 1)
+        return Response(self.get_serializer(obj).data)

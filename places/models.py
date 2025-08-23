@@ -1,4 +1,8 @@
+import uuid
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
+import secrets
 
 class Place(models.Model):
   id = models.AutoField(primary_key=True)
@@ -26,3 +30,32 @@ class SubwayLines(models.Model):
   station = models.CharField(max_length=50)
   longitude = models.FloatField()
   latitude = models.FloatField()
+
+def gen_short(n=8):
+    # URL-safe 랜덤 토큰 일부만 사용 (짧게)
+    return secrets.token_urlsafe(6)[:n]
+
+def default_expires(): 
+    # 7일 만료
+    return timezone.now() + timedelta(days=7)
+
+def gen_uuid_hex():
+    return uuid.uuid4().hex
+
+class RouteSnapshot(models.Model):
+    # short + unique index
+    id = models.CharField(primary_key=True,max_length=32,default=gen_uuid_hex,editable=False)
+    short = models.CharField(max_length=16, unique=True, db_index=True, default=gen_short)
+    params = models.JSONField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=default_expires)
+    view_count = models.PositiveIntegerField(default=0)
+
+    def is_expired(self) -> bool:
+        return timezone.now() >= self.expires_at
+    
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = gen_uuid_hex()
+        super().save(*args, **kwargs)

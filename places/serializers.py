@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import PopularKeyward
+from django.conf import settings
+from .models import PopularKeyward, RouteSnapshot, gen_short
+from django.db import IntegrityError, models as dj_models
+from django.db import transaction
+from django.db.models import Max
+
+
 
 # 1.2 구글 장소 검색
 class PlaceMixin(serializers.Serializer):
@@ -132,3 +138,37 @@ class PlaceRouteSerializer(serializers.Serializer):
     destination_y = serializers.FloatField()
     startName = serializers.CharField(required=False)
     endName = serializers.CharField(required=False)
+
+# 6.3 링크 공유
+FRONT_ORIGIN = getattr(settings, "FRONT_ORIGIN", "https://www.taroute.com").rstrip("/")
+class RouteSnapshotCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RouteSnapshot
+        fields = ["params"] 
+
+    def create(self, validated_data):
+
+        last_err = None
+        for _ in range(10):
+            try:
+                return RouteSnapshot.objects.create(
+                    short=gen_short(),
+                    view_count=0, 
+                    **validated_data
+                )
+            except IntegrityError as e:
+                last_err = e
+                if "unique" in str(e).lower() and "short" in str(e).lower():
+                    continue
+                raise serializers.ValidationError(f"DB 오류: {e}")
+        raise serializers.ValidationError(f"공유 코드를 발급하지 못했습니다. (마지막 오류: {last_err})")
+
+class RouteSnapshotSerializer(serializers.ModelSerializer):
+    share_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RouteSnapshot
+        fields = ["short", "params", "created_at", "expires_at", "share_url", "view_count"]
+
+    def get_share_url(self, obj):
+        return f"{FRONT_ORIGIN}/r/{obj.short}"
