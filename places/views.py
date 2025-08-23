@@ -583,7 +583,7 @@ class PlaceRouteViewSet(viewsets.GenericViewSet):
 
             return Response({
                 "transit_summary": traffic_routes.get("transit_summary"),
-                "segments": traffic_routes.get("segments"),
+                "segments": traffic_routes.get("segments")
             }, status=200)
         
         elif transport == "walk": # 티맵(도보)
