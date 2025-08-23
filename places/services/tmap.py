@@ -13,6 +13,27 @@ def _headers():
     }
 
 # 6.1 등록된 카드의 동선 안내(도보)
+# 지도에 마커찍기 위한 위도경도 포인트 추출
+def map_points(features):
+    result = []
+    for f in features:
+        geom = f.get("geometry", {})
+        props = f.get("properties", {})
+
+        if geom.get("type") == "Point":
+            coords = geom.get("coordinates", [])
+            if not coords:
+                continue
+
+            item = {
+                "name": props.get("name") or props.get("nearPoiName") or "",
+                "lat": coords[1],   #
+                "lng": coords[0]
+            }
+            result.append(item)
+    return result
+
+
 def walk_route(startX, startY, endX, endY, startName=None, endName=None):
     payload = {
         "startX":startX, 
@@ -32,10 +53,13 @@ def walk_route(startX, startY, endX, endY, startName=None, endName=None):
     walk_time = round((data.get("totalTime") or 0) / 60)
     walk_step = round((data.get("totalDistance") or 0) / 0.7)
 
+    points = map_points(features)
+
     walk_routes = {
         "walk_distance" : f"{walk_distance}km",
         "walk_time" : f"{walk_time}분",
-        "walk_step" : f"{walk_step:,}걸음"
+        "walk_step" : f"{walk_step:,}걸음",
+        "points" : points
     }
     return walk_routes
 
@@ -85,8 +109,8 @@ def traffic_route(startX, startY, endX, endY, lang=0, format="json", count=5):
         if mode == "SUBWAY":
             seg.update({
                 "subway_line" : l.get("route"), # 수도권3호선
-                "start_station": start.get("name"),
-                "end_station": end.get("name"),
+                "start_station": start.get("name"), "start_slon": start.get("lon"), "start_slat": start.get("lat"),
+                "end_station": end.get("name"), "end_slon": end.get("lon"), "end_slat": end.get("lat")
             })
         elif mode == "BUS":
             bus_line = l.get("route") or ""
@@ -94,8 +118,8 @@ def traffic_route(startX, startY, endX, endY, lang=0, format="json", count=5):
             bus_no = mnum.group(0) if mnum else bus_line
             seg.update({
                 "bus_number" : bus_no,
-                "start_stop": start.get("name"),
-                "end_stop": end.get("name")
+                "start_stop": start.get("name"), "start_blon": start.get("lon"), "start_blat": start.get("lat"),
+                "end_stop": end.get("name"), "end_blon": end.get("lon"), "end_blat": end.get("lat")
             })
         
         segments.append(seg)
