@@ -11,7 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import os
+import os, environ
+
+env = environ.Env()
+environ.Env.read_env()
 
 # .env 파일 읽기
 from dotenv import load_dotenv
@@ -199,3 +202,5 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # 브라우저를 닫아도 세션 유�
 
 SESSION_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SAMESITE = 'None'
+
+FRONT_ORIGIN = env.str("FRONT_ORIGIN", "https://www.taroute.com").rstrip("/")
