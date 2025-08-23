@@ -180,6 +180,10 @@ def search_detail(place_id):
 
 # 4. 타로 페이지
 def search_slot(x, y, radius):
+
+    if x is None or y is None:
+        raise ValueError(f"위치 좌표가 None입니다. x={x}, y={y}")
+
     body = {
         "languageCode": "ko",
         "regionCode": "KR",
@@ -392,6 +396,7 @@ def search_category_places(
     
     try:
         r = requests.post(api_url, headers=_headers(), json=body, timeout=20)
+        status = r.status_code
         r.raise_for_status()
         data = r.json()
 
