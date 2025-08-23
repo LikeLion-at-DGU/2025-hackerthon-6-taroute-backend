@@ -357,25 +357,27 @@ def search_category_places(
     # 구글 Places API 요청 구성
     body = {
         "languageCode": "ko",
-        "regionCode": "KR",
-        "locationRestriction": {
-            "circle": {
-                "center": {"latitude": float(y), "longitude": float(x)},
-                "radius": search_radius,
-            }
-        }
+        "regionCode": "KR"
     }
-    
+
     # 텍스트 쿼리가 있으면 searchText 사용, 없으면 searchNearby 사용
     if text_query:
         body["textQuery"] = text_query
-        if sort_by == "distance":
-            body["rankPreference"] = "DISTANCE"
-        else:
-            body["rankPreference"] = "RELEVANCE"
-        
+        body["rankPreference"] = "DISTANCE" if sort_by == "distance" else "RELEVANCE"
         api_url = f"{BASE}:searchText"
+        body["locationBias"] = {
+            "circle": {
+                "center": {"latitude": float(y), "longitude": float(x)},
+                "radius": float(search_radius),
+            }
+        }
     else:
+        body["locationRestriction"] = {
+            "circle": {
+                "center": {"latitude": float(y), "longitude": float(x)},
+                "radius": float(search_radius),
+            }
+        }
         # 카테고리별 장소 타입 설정
         if category != "all" and category in CATEGORY_TYPE_MAPPING:
             body["includedTypes"] = CATEGORY_TYPE_MAPPING[category]
@@ -392,6 +394,7 @@ def search_category_places(
         r = requests.post(api_url, headers=_headers(), json=body, timeout=20)
         r.raise_for_status()
         data = r.json()
+
         places = data.get("places", [])
         
         # 장소 데이터 변환 및 필터링
@@ -425,6 +428,9 @@ def search_category_places(
         # 결과 수 제한
         return sorted_places[:limit]
         
+    except requests.HTTPError as e:
+        raise RuntimeError(f"Places API error {status}") from e
+
     except Exception as e:
         print(f"카테고리 장소 검색 실패: {e}")
         return []
