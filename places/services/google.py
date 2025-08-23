@@ -357,25 +357,27 @@ def search_category_places(
     # 구글 Places API 요청 구성
     body = {
         "languageCode": "ko",
-        "regionCode": "KR",
-        "locationRestriction": {
-            "circle": {
-                "center": {"latitude": float(y), "longitude": float(x)},
-                "radius": search_radius,
-            }
-        }
+        "regionCode": "KR"
     }
-    
+
     # 텍스트 쿼리가 있으면 searchText 사용, 없으면 searchNearby 사용
     if text_query:
         body["textQuery"] = text_query
-        if sort_by == "distance":
-            body["rankPreference"] = "DISTANCE"
-        else:
-            body["rankPreference"] = "RELEVANCE"
-        
+        body["rankPreference"] = "DISTANCE" if sort_by == "distance" else "RELEVANCE"
         api_url = f"{BASE}:searchText"
+        body["locationBias"] = {
+            "circle": {
+                "center": {"latitude": float(y), "longitude": float(x)},
+                "radius": float(search_radius),
+            }
+        }
     else:
+        body["locationRestriction"] = {
+            "circle": {
+                "center": {"latitude": float(y), "longitude": float(x)},
+                "radius": float(search_radius),
+            }
+        }
         # 카테고리별 장소 타입 설정
         if category != "all" and category in CATEGORY_TYPE_MAPPING:
             body["includedTypes"] = CATEGORY_TYPE_MAPPING[category]
@@ -392,6 +394,7 @@ def search_category_places(
         r = requests.post(api_url, headers=_headers(), json=body, timeout=20)
         r.raise_for_status()
         data = r.json()
+
         places = data.get("places", [])
         
         # 장소 데이터 변환 및 필터링
@@ -425,6 +428,9 @@ def search_category_places(
         # 결과 수 제한
         return sorted_places[:limit]
         
+    except requests.HTTPError as e:
+        raise RuntimeError(f"Places API error {status}") from e
+
     except Exception as e:
         print(f"카테고리 장소 검색 실패: {e}")
         return []
@@ -454,29 +460,34 @@ def _extract_place_data(place, center_x, center_y):
     photos = place.get("photos", [])
     place_photos = [
         build_photo_url(photo["name"], max_width_px=400)
-        for photo in photos[:3]  # 최대 3장
+        for photo in photos[:5]
         if photo.get("name")
     ]
     
     # 영업시간 정보 처리
-    opening_hours = place.get("regularOpeningHours", {})
+    # opening_hours = place.get("regularOpeningHours", {})
     is_open_now = place.get("businessStatus") == "OPERATIONAL"
+    running_time = place.get("regularOpeningHours", {})
+    if not running_time:
+        time = "영업시간 정보 없음"
+    else:
+        time = format_running(running_time)
     
     return {
         "place_id": place_id,
         "place_name": place.get("displayName", {}).get("text", ""),
-        "category": category,
+        "distance": f"{distance_km}km",
+        # "category": category,
         "address": place.get("formattedAddress", ""),
         "location": place.get("location", {}),
-        "distance": f"{distance_km}km",
-        "distance_km": distance_km,
-        "rating": place.get("rating", 0.0),
-        "review_count": place.get("userRatingCount", 0),
-        "price_level": _get_price_level(place.get("priceLevel")),
-        "opening_hours": opening_hours,
+        # "distance_km": distance_km,
+        # "rating": place.get("rating", 0.0),
+        # "review_count": place.get("userRatingCount", 0),
+        # "price_level": _get_price_level(place.get("priceLevel")),
+        "running_time": time,
         "is_open_now": is_open_now,
         "place_photos": place_photos,
-        "click_num": click_num
+        # "click_num": click_num
     }
 
 def _classify_category(place_types):
