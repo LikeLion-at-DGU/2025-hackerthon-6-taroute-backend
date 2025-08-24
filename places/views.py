@@ -533,6 +533,77 @@ class ChatViewSet(viewsets.ViewSet):
         return Response({"google_place": []}, status=204)
     return Response({"select" : select}, status=200)
 
+  @extend_schema(
+    tags=["🔥타로페이지"], 
+    summary="4.3 장소 AI 한줄 요약",
+    parameters=[
+      OpenApiParameter(name="place_id", description="장소 ID", required=True, type=str),
+      OpenApiParameter(name="lang", description="언어 설정", required=False, type=str, enum=["ko", "en"], default="ko")
+    ],
+    description="장소 클릭 시 구글 리뷰 5개 크롤링 후 30자 이내 정확한 정보 AI 요약 제공"
+  )
+  @action(detail=False, methods=["GET"])
+  def place_summary(self, request):
+    """장소 클릭 시 AI 한줄 요약 (30자 이내)"""
+    place_id = request.query_params.get('place_id')
+    lang = request.query_params.get('lang', 'ko')
+    
+    if not place_id:
+        return Response({"detail": "place_id가 필요합니다."}, status=400)
+    
+    # 언어 유효성 검사
+    if lang not in ['ko', 'en']:
+        lang = 'ko'
+    
+    try:
+        # 1. 구글 장소 상세 정보 가져오기
+        place_detail = google.search_detail(place_id)
+        place_name = place_detail.get('place_name', '알 수 없는 장소')
+        
+        # 2. 구글 리뷰 5개 크롤링
+        google_review_data = {"reviews": [], "review_count": 0}
+        try:
+            google_review_data = google.get_google_reviews(place_id, limit=5)
+            print(f"구글 리뷰 크롤링 완료: {google_review_data['review_count']}개")
+        except Exception as e:
+            print(f"구글 리뷰 크롤링 실패: {e}")
+        
+        # 3. AI 정확한 정보 한줄 요약 생성
+        place_summary = None
+        if google_review_data["reviews"]:
+            try:
+                place_summary = openai.create_accurate_summary(
+                    place_name=place_name,
+                    reviews=google_review_data["reviews"],
+                    lang=lang
+                )
+                print(f"장소 AI 요약 생성 완료: {place_summary}")
+            except Exception as e:
+                print(f"장소 AI 요약 생성 실패: {e}")
+                place_summary = None
+        
+        # 4. 기본 메시지 (리뷰가 없거나 AI 요약 실패 시)
+        if not place_summary:
+            if lang == "en":
+                place_summary = "No reviews available"
+            else:
+                place_summary = "리뷰 정보가 없습니다"
+        
+        return Response({
+            "place_id": place_id,
+            "place_name": place_name,
+            "place_summary": place_summary,
+            "review_count": google_review_data["review_count"],
+            "google_rating": google_review_data.get("google_rating", 0),
+            "google_rating_count": google_review_data.get("google_rating_count", 0),
+            "lang": lang
+        }, status=200)
+        
+    except requests.RequestException as e:
+        return Response({"detail": f"구글 API 호출 실패: {e}"}, status=502)
+    except Exception as e:
+        return Response({"detail": f"장소 요약 생성 중 오류: {str(e)}"}, status=500)
+
 # 동선 페이지
 ###############################################################################################################################
 class PlaceRouteViewSet(viewsets.GenericViewSet):

@@ -101,7 +101,7 @@ def _headers():
     }
 
 # 리뷰를 데이터로 AI 요약
-def openai_summary(input_text:str, lang: str = "ko", model: str = "gpt-5-mini"):
+def openai_summary(input_text:str, lang: str = "ko", model: str = "gpt-4o-mini"):
     # 언어별 시스템 프롬프트 설정
     if lang == "en":
         system_prompt = (
