@@ -108,6 +108,22 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
         except PopularKeyward.DoesNotExist:
             pass
 
+        # 거리 계산 추가 (m 단위로 통일)
+        place_lat = p.get("location", {}).get("latitude", 0)
+        place_lng = p.get("location", {}).get("longitude", 0)
+        
+        if not place_lat or not place_lng or not x or not y:
+            distance_m = 999999  # 좌표가 없으면 매우 먼 거리로 설정
+        else:
+            distance_km = calculate_distance(y, x, place_lat, place_lng)
+            distance_m = int(distance_km * 1000)  # km를 m로 변환
+        
+        # 거리 표시 형식
+        if distance_m < 1000:
+            distance_display = f"{distance_m}m"
+        else:
+            distance_display = f"{distance_m / 1000:.1f}km"
+
         photos = p.get("photos", [])[:1]
         place_photos = {
             build_photo_url(p["name"], max_width_px=800)
@@ -122,6 +138,8 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
             "place_name" : p.get("displayName", {}).get("text"),
             "address" : p.get("formattedAddress"),
             "location" : p.get("location"),
+            "distance": distance_display,
+            "distance_m": distance_m,  # 정렬을 위한 m 단위 거리
             "review_count" : review_count,
             "click_num": click_num,
             "place_photos" : place_photos
@@ -132,7 +150,9 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
             # "price_range_end" : p.get("priceRange", {}).get("endPrice", {}).get("units"),
         })
 
-        
+    # rankPreference가 DISTANCE면 거리순 정렬 적용
+    if rankPreference == "DISTANCE":
+        google_place.sort(key=lambda x: x.get("distance_m", 999999))
     
     return google_place
 
@@ -390,7 +410,7 @@ def search_category_places(
         category: 카테고리 ("restaurant", "cafe", "culture", "tourist_attraction", "all")
         x, y: 검색 중심 좌표
         radius: 기본 검색 반경
-        distance_filter: 거리 필터 ("500m", "1km", "3km", "5km", "all")
+        distance_filter: 거리 필터 ("0.5km", "1km", "3km", "5km", "all")
         visit_time_filter: 방문시간 필터 ("morning", "afternoon", "evening", "night", "dawn", "all")
         visit_days_filter: 방문요일 필터 (리스트)
         sort_by: 정렬 기준 ("distance", "relevance", "rating", "popularity")
@@ -400,8 +420,8 @@ def search_category_places(
         필터링된 장소 리스트
     """
     
-    # 거리 필터에 따른 반경 조정 (500m 추가, 5km 이상 제거)
-    if distance_filter == "500m":
+    # 거리 필터에 따른 반경 조정 (0.5km 추가, 5km 이상 제거)
+    if distance_filter == "0.5km":
         search_radius = 500
     elif distance_filter == "1km":
         search_radius = 1000
@@ -411,6 +431,8 @@ def search_category_places(
         search_radius = 5000
     else:
         search_radius = radius
+
+    
     
     # 구글 Places API 요청 구성
     body = {
@@ -463,16 +485,16 @@ def search_category_places(
             # 기본 정보 추출
             place_data = _extract_place_data(p, x, y)
             
-            # 거리 필터 적용 (500m 추가, 5km 이상 제거)
+            # 거리 필터 적용 (m 단위로 통일)
             if distance_filter != "all":
-                # 거리 필터에 따른 추가 필터링
-                if distance_filter == "500m" and place_data["distance_km"] > 0.5:
+                # 거리 필터에 따른 추가 필터링 (m 단위)
+                if distance_filter == "0.5km" and place_data["distance_m"] > 500:
                     continue
-                elif distance_filter == "1km" and place_data["distance_km"] > 1.0:
+                elif distance_filter == "1km" and place_data["distance_m"] > 1000:
                     continue
-                elif distance_filter == "3km" and place_data["distance_km"] > 3.0:
+                elif distance_filter == "3km" and place_data["distance_m"] > 3000:
                     continue
-                elif distance_filter == "5km" and place_data["distance_km"] > 5.0:
+                elif distance_filter == "5km" and place_data["distance_m"] > 5000:
                     continue
             
             # 영업시간 관련 필터 적용
@@ -516,10 +538,16 @@ def _extract_place_data(place, center_x, center_y):
     except PopularKeyward.DoesNotExist:
         pass
     
-    # 거리 계산
+    # 거리 계산 (모든 거리를 m 단위로 통일)
     place_lat = place.get("location", {}).get("latitude", 0)
     place_lng = place.get("location", {}).get("longitude", 0)
-    distance_km = calculate_distance(center_y, center_x, place_lat, place_lng)
+    
+    # 좌표 유효성 검증
+    if not place_lat or not place_lng or not center_x or not center_y:
+        distance_m = 999999  # 좌표가 없으면 매우 먼 거리로 설정 (999km)
+    else:
+        distance_km = calculate_distance(center_y, center_x, place_lat, place_lng)
+        distance_m = int(distance_km * 1000)  # km를 m로 변환하고 정수로 처리
     
     # 카테고리 분류
     place_types = place.get("types", [])
@@ -534,7 +562,6 @@ def _extract_place_data(place, center_x, center_y):
     ]
     
     # 영업시간 정보 처리
-    # opening_hours = place.get("regularOpeningHours", {})
     is_open_now = place.get("businessStatus") == "OPERATIONAL"
     running_time = place.get("regularOpeningHours", {})
     if not running_time:
@@ -542,11 +569,17 @@ def _extract_place_data(place, center_x, center_y):
     else:
         time = format_running(running_time)
     
+    # 거리 표시 형식 (m 단위 기준으로 표시)
+    if distance_m < 1000:
+        distance_display = f"{distance_m}m"
+    else:
+        distance_display = f"{distance_m / 1000:.1f}km"
+    
     return {
         "place_id": place_id,
         "place_name": place.get("displayName", {}).get("text", ""),
-        "distance": f"{distance_km}km",
-        "distance_km": distance_km,  # 정렬을 위해 숫자 거리 추가
+        "distance": distance_display,
+        "distance_m": distance_m,  # 정렬/필터링을 위한 m 단위 거리
         # "category": category,
         "address": place.get("formattedAddress", ""),
         "location": place.get("location", {}),
@@ -658,7 +691,9 @@ def _time_overlap(start1, end1, start2, end2):
 def _sort_places(places, sort_by):
     """장소 리스트 정렬"""
     if sort_by == "distance":
-        return sorted(places, key=lambda x: x.get("distance_km", 999))
+        # 거리순 정렬 (distance_m 기준, None이나 누락값은 999999로 처리)
+        sorted_places = sorted(places, key=lambda x: int(x.get("distance_m", 999999)))
+        return sorted_places
     elif sort_by == "rating":
         return sorted(places, key=lambda x: x.get("rating", 0), reverse=True)
     elif sort_by == "popularity":
@@ -670,7 +705,6 @@ def _sort_places(places, sort_by):
             return sorted_by_price
         else:
             # 가격 정보가 없으면 정확도 순으로 대체
-            print("가격 낮은 순 정렬 실패, 정확도 순으로 대체")
             return _sort_by_relevance(places)
     elif sort_by == "price_high":
         # 가격 높은 순 정렬 시도
@@ -679,7 +713,6 @@ def _sort_places(places, sort_by):
             return sorted_by_price
         else:
             # 가격 정보가 없으면 정확도 순으로 대체
-            print("가격 높은 순 정렬 실패, 정확도 순으로 대체")
             return _sort_by_relevance(places)
     else:  # relevance (기본값)
         return _sort_by_relevance(places)
@@ -711,10 +744,21 @@ def _price_level_to_number(price_level):
     return price_mapping.get(price_level, 2)  # 기본값은 보통
 
 def _sort_by_relevance(places):
-    """정확도 순 정렬"""
+    """정확도 순 정렬 (거리도 고려)"""
     def relevance_score(place):
         rating = place.get("rating", 0)
         review_count = min(place.get("review_count", 0), 1000)  # 최대 1000으로 제한
-        return rating * (1 + review_count / 1000)
+        distance_m = place.get("distance_m", 999999)
+        
+        # 기본 점수 (평점 * 리뷰수 가중치)
+        base_score = rating * (1 + review_count / 1000)
+        
+        # 거리 보너스 (1km 이내면 보너스, 멀수록 패널티)
+        if distance_m <= 1000:  # 1km 이내
+            distance_bonus = 1 + (1000 - distance_m) / 1000 * 0.3  # 최대 30% 보너스
+        else:
+            distance_bonus = max(0.7, 1 - (distance_m - 1000) / 10000 * 0.3)  # 거리 패널티
+            
+        return base_score * distance_bonus
     
     return sorted(places, key=relevance_score, reverse=True)
