@@ -422,8 +422,6 @@ def search_category_places(
     
     # 거리 필터에 따른 반경 조정 (0.5km 추가, 5km 이상 제거)
     if distance_filter == "0.5km":
-    # 거리 필터에 따른 반경 조정 (0.5km 추가, 5km 이상 제거)
-    if distance_filter == "0.5km":
         search_radius = 500
     elif distance_filter == "1km":
         search_radius = 1000
