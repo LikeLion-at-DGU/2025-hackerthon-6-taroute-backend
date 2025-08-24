@@ -121,6 +121,15 @@ def traffic_route(startX, startY, endX, endY, lang=0, format="json", count=5):
                 "start_stop": start.get("name"), "start_blon": start.get("lon"), "start_blat": start.get("lat"),
                 "end_stop": end.get("name"), "end_blon": end.get("lon"), "end_blat": end.get("lat")
             })
+        elif mode == "WALK":
+            seg.update({
+                "start_name": start.get("name"),
+                "start_lat": start.get("lat"), "start_lng": start.get("lon"),
+                "end_name": end.get("name"),
+                "end_lat": end.get("lat"), "end_lng": end.get("lon")
+            })
+
+        
         
         segments.append(seg)
 
@@ -131,7 +140,8 @@ def traffic_route(startX, startY, endX, endY, lang=0, format="json", count=5):
             "trans_distance" : f"{trans_distance}km",
             "trans_fare" : f"{trans_fare:,}원"
         },
-        "segments" : segments
+        "segments" : segments,
+        "rawdata":itin
     }
 
 
