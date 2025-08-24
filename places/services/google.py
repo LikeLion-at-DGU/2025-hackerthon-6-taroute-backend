@@ -178,6 +178,60 @@ def search_detail(place_id):
 
     return search_details
 
+def get_google_reviews(place_id, limit=5):
+    """구글 Places API에서 특정 장소의 리뷰를 가져오는 함수
+    
+    Args:
+        place_id (str): 구글 place ID
+        limit (int): 가져올 리뷰 수 (기본 5개)
+    
+    Returns:
+        dict: {"reviews": [리뷰 텍스트 리스트], "google_rating": 구글평점, "google_rating_count": 총리뷰수, "review_count": 크롤링한리뷰수}
+    """
+    try:
+        # 구글 Places API에서 리뷰 포함하여 장소 정보 조회
+        params = {
+            "languageCode": "ko",
+            "regionCode": "KR", 
+            "fields": "id,displayName,reviews,rating,userRatingCount",
+        }
+        
+        r = requests.get(f"{BASE}/{place_id}", params=params, headers=_headers(), timeout=20)
+        r.raise_for_status()
+        
+        data = r.json()
+        reviews_data = data.get("reviews", [])
+        
+        # 구글 장소 평점 정보 (개별 리뷰 별점이 아닌 장소 전체 평점)
+        google_rating = data.get("rating", 0)  # 구글 장소 평점
+        google_rating_count = data.get("userRatingCount", 0)  # 총 리뷰 수
+        
+        # 리뷰 텍스트 추출 (빈 리뷰는 제외)
+        review_texts = []
+        
+        for review in reviews_data[:limit]:
+            text_data = review.get("text", {})
+            review_text = text_data.get("text", "").strip()
+            
+            if review_text and len(review_text) >= 10:  # 최소 10자 이상인 리뷰만
+                review_texts.append(review_text)
+        
+        print(f"구글 리뷰 {len(review_texts)}개 수집 완료 (구글평점: {google_rating}/5.0, 총 리뷰수: {google_rating_count}) (장소ID: {place_id})")
+        
+        return {
+            "reviews": review_texts,
+            "google_rating": google_rating,  # 구글 장소 평점
+            "google_rating_count": google_rating_count,  # 총 리뷰 수
+            "review_count": len(review_texts)  # 크롤링한 리뷰 수
+        }
+        
+    except requests.RequestException as e:
+        print(f"구글 리뷰 수집 실패 (장소ID: {place_id}): {e}")
+        return {"reviews": [], "google_rating": 0, "google_rating_count": 0, "review_count": 0}
+    except Exception as e:
+        print(f"구글 리뷰 처리 중 오류 (장소ID: {place_id}): {e}")
+        return {"reviews": [], "google_rating": 0, "google_rating_count": 0, "review_count": 0}
+
 # 4. 타로 페이지
 def search_slot(x, y, radius):
 

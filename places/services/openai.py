@@ -164,3 +164,68 @@ def create_chat(input_text: str, lang: str = "ko", model: str = "gpt-4o-mini"):
         raise requests.HTTPError(f"OpenAI {e.response.status_code} Error: {detail}") from e
 
     return r.json()
+
+# 리뷰 기반 정확한 정보 요약 (20자 이내)
+def create_accurate_summary(place_name: str, reviews: list, lang: str = "ko", model: str = "gpt-4o-mini"):
+    """구글 리뷰를 기반으로 정확한 정보의 한줄 요약 생성 (20자 이내)"""
+    
+    if not reviews:
+        return None
+    
+    # 리뷰 텍스트 합치기 (최대 5개)
+    review_texts = reviews[:5]
+    combined_reviews = "\n".join([f"- {review}" for review in review_texts])
+    
+    if lang.lower() == "ko":
+        system_prompt = (
+            "당신은 장소 정보 전문가입니다. "
+            "구글 리뷰들을 바탕으로 이 장소의 핵심 특징을 30자 이내로 정확하고 간결하게 요약해주세요. "
+            "요약 시 반드시 다음 우선순위를 따라주세요: 1) 주요 메뉴/음식 종류, 2) 맛/품질, 3) 서비스/분위기, 4) 가격대 "
+            "리뷰에서 언급된 구체적인 메뉴명이나 음식 종류를 반드시 포함해주세요. "
+        )
+        user_prompt = f"장소명: {place_name}\n\n리뷰들:\n{combined_reviews}\n\n이 장소를 30자 이내로 요약하되, 반드시 주요 메뉴나 음식 종류를 포함해서 실용적인 한줄 요약을 작성해주세요."
+    else:
+        system_prompt = (
+            "You are a place information expert. "
+            "Summarize this place's key features accurately within 30 characters based on Google reviews. "
+            "Follow this priority: 1) Main menu/food type, 2) Taste/quality, 3) Service/atmosphere, 4) Price range "
+            "Always include specific menu items or food types mentioned in reviews. "
+            "Examples: 'Spicy hotpot & noodles restaurant', 'Coffee & dessert specialty cafe', 'BBQ & soup Korean restaurant'"
+        )
+        user_prompt = f"Place: {place_name}\n\nReviews:\n{combined_reviews}\n\nSummarize this place within 30 characters, making sure to include main menu or food types for practical information."
+    
+    body = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "max_tokens": 100,
+        "temperature": 0.3  # 정확하고 일관성 있는 요약을 위해 낮은 temperature 사용
+    }
+    
+    r = requests.post(BASE, headers=_headers(), json=body, timeout=(5, 20))
+    try:
+        r.raise_for_status()
+    except requests.HTTPError as e:
+        detail = getattr(e.response, "text", "") or str(e)
+        raise requests.HTTPError(f"OpenAI {e.response.status_code} Error: {detail}") from e
+    
+    response_data = r.json()
+    
+    # 응답에서 내용 추출
+    try:
+        summary = response_data["choices"][0]["message"]["content"].strip()
+        
+        # 따옴표 제거 및 길이 제한
+        summary = summary.replace('"', '').replace("'", '')
+        
+        # 한국어의 경우 30자, 영어의 경우 40자 제한
+        max_length = 30 if lang.lower() == "ko" else 40
+        if len(summary) > max_length:
+            summary = summary[:max_length] + "..."
+        
+        return summary
+        
+    except (KeyError, IndexError) as e:
+        raise ValueError(f"OpenAI 응답 파싱 실패: {e}")

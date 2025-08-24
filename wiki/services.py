@@ -245,7 +245,7 @@ def generate_ai_summary(place_name: str, reviews: List[str] = None, basic_info: 
     try:
         # OpenAI API 호출
         response = client.chat.completions.create(
-            model="gpt-5",  # 최신 모델 사용
+            model="gpt-4o-mini",  # 최신 모델 사용
             messages=[
                 {
                     "role": "system", 
@@ -261,7 +261,7 @@ def generate_ai_summary(place_name: str, reviews: List[str] = None, basic_info: 
         
         # 메타데이터 생성
         metadata = {
-            "model": "gpt-5",
+            "model": "gpt-4o-mini",
             "prompt_tokens": response.usage.prompt_tokens,
             "completion_tokens": response.usage.completion_tokens,
             "total_tokens": response.usage.total_tokens,
