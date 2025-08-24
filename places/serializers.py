@@ -60,7 +60,7 @@ class CategorySearchSerializer(PlaceMixin):
     # 거리 필터
     distance_filter = serializers.ChoiceField(
         choices=[
-            ("500m", "500m 이내"),
+            ("0.5km", "0.5km 이내"),
             ("1km", "1km 이내"),
             ("3km", "3km 이내"),
             ("5km", "5km 이내"),
