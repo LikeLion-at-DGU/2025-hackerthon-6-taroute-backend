@@ -145,7 +145,43 @@ class PlaceViewSet(viewsets.ViewSet):
 
     return response
 
-    
+  @extend_schema(
+        tags = ["🔥메인페이지"], 
+        summary="1.4 장소 찜 해제하기", 
+        parameters=[
+            OpenApiParameter(name="place_id", description="장소 ID", required=True, type=str),
+            OpenApiParameter(name="session_key", description="세션키", required=True, type=str)
+        ]
+    )
+  @action(detail=False, methods=["GET"])
+  def unsave_place(self, request):
+    place_id = request.query_params.get('place_id')
+    session_key = request.query_params.get('session_key')
+
+    try:
+        session = Session.objects.get(session_key=session_key)
+        session_data = session.get_decoded()
+        saved_places = session_data.get('saved_places', {})
+
+        if place_id in saved_places:
+            del saved_places[place_id]
+
+            # 세션 업데이트
+            session_data['saved_places'] = saved_places
+            session.session_data = Session.objects.encode(session_data)
+            session.save()
+
+            return Response({
+                'message': f'장소 {place_id} 찜 해제 완료',
+                'session_key': session_key,
+                'places': saved_places
+            })
+
+
+        return Response({'session_key': session_key, 'places': saved_places})
+    except Session.DoesNotExist:
+        return Response({'error': '세션을 찾을 수 없습니다.'}, status=404)
+
 
   @extend_schema(
     tags = ["🔥메인페이지"], 
