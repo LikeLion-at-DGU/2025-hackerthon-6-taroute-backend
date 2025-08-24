@@ -463,7 +463,17 @@ def search_category_places(
             # 기본 정보 추출
             place_data = _extract_place_data(p, x, y)
             
-            # 거리 필터 적용 (5km_plus 옵션 제거됨)
+            # 거리 필터 적용 (500m 추가, 5km 이상 제거)
+            if distance_filter != "all":
+                # 거리 필터에 따른 추가 필터링
+                if distance_filter == "500m" and place_data["distance_km"] > 0.5:
+                    continue
+                elif distance_filter == "1km" and place_data["distance_km"] > 1.0:
+                    continue
+                elif distance_filter == "3km" and place_data["distance_km"] > 3.0:
+                    continue
+                elif distance_filter == "5km" and place_data["distance_km"] > 5.0:
+                    continue
             
             # 영업시간 관련 필터 적용
             if visit_time_filter != "all" or visit_days_filter:
@@ -536,17 +546,17 @@ def _extract_place_data(place, center_x, center_y):
         "place_id": place_id,
         "place_name": place.get("displayName", {}).get("text", ""),
         "distance": f"{distance_km}km",
+        "distance_km": distance_km,  # 정렬을 위해 숫자 거리 추가
         # "category": category,
         "address": place.get("formattedAddress", ""),
         "location": place.get("location", {}),
-        # "distance_km": distance_km,
-        # "rating": place.get("rating", 0.0),
-        # "review_count": place.get("userRatingCount", 0),
-        # "price_level": _get_price_level(place.get("priceLevel")),
+        "rating": place.get("rating", 0.0),  # 정렬을 위해 추가
+        "review_count": place.get("userRatingCount", 0),  # 정렬을 위해 추가
+        "price_level": _get_price_level(place.get("priceLevel")),  # 가격 정렬을 위해 추가
         "running_time": time,
         "is_open_now": is_open_now,
         "place_photos": place_photos,
-        # "click_num": click_num
+        "click_num": click_num  # 인기순 정렬을 위해 추가
     }
 
 def _classify_category(place_types):
@@ -653,11 +663,58 @@ def _sort_places(places, sort_by):
         return sorted(places, key=lambda x: x.get("rating", 0), reverse=True)
     elif sort_by == "popularity":
         return sorted(places, key=lambda x: x.get("click_num", 0), reverse=True)
+    elif sort_by == "price_low":
+        # 가격 낮은 순 정렬 시도
+        sorted_by_price = _sort_by_price(places, reverse=False)
+        if sorted_by_price:
+            return sorted_by_price
+        else:
+            # 가격 정보가 없으면 정확도 순으로 대체
+            print("가격 낮은 순 정렬 실패, 정확도 순으로 대체")
+            return _sort_by_relevance(places)
+    elif sort_by == "price_high":
+        # 가격 높은 순 정렬 시도
+        sorted_by_price = _sort_by_price(places, reverse=True)
+        if sorted_by_price:
+            return sorted_by_price
+        else:
+            # 가격 정보가 없으면 정확도 순으로 대체
+            print("가격 높은 순 정렬 실패, 정확도 순으로 대체")
+            return _sort_by_relevance(places)
     else:  # relevance (기본값)
-        # 평점과 리뷰 수를 조합한 관련성 점수
-        def relevance_score(place):
-            rating = place.get("rating", 0)
-            review_count = min(place.get("review_count", 0), 1000)  # 최대 1000으로 제한
-            return rating * (1 + review_count / 1000)
-        
-        return sorted(places, key=relevance_score, reverse=True)
+        return _sort_by_relevance(places)
+
+def _sort_by_price(places, reverse=False):
+    """가격 기준 정렬 (가격 정보가 있는 장소만)"""
+    # 가격 정보가 있는 장소들만 필터링
+    places_with_price = [p for p in places if p.get("price_level") and p.get("price_level") != "정보 없음"]
+    
+    if not places_with_price:
+        return None  # 가격 정보가 있는 장소가 없음
+    
+    # 가격 수준을 숫자로 변환하여 정렬
+    def price_to_number(place):
+        price_level = place.get("price_level", "")
+        return _price_level_to_number(price_level)
+    
+    return sorted(places_with_price, key=price_to_number, reverse=reverse)
+
+def _price_level_to_number(price_level):
+    """가격 수준을 숫자로 변환"""
+    price_mapping = {
+        "무료": 0,
+        "저렴함": 1,
+        "보통": 2,
+        "비쌈": 3,
+        "매우 비쌈": 4
+    }
+    return price_mapping.get(price_level, 2)  # 기본값은 보통
+
+def _sort_by_relevance(places):
+    """정확도 순 정렬"""
+    def relevance_score(place):
+        rating = place.get("rating", 0)
+        review_count = min(place.get("review_count", 0), 1000)  # 최대 1000으로 제한
+        return rating * (1 + review_count / 1000)
+    
+    return sorted(places, key=relevance_score, reverse=True)

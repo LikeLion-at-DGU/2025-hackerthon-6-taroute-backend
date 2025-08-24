@@ -23,6 +23,7 @@ from .serializers import (
     WikiReportSerializer,
     WikiReportCreateSerializer,
 )
+from .service import openai
 
 import logging
 
@@ -97,16 +98,29 @@ class WikiReviewViewSet(viewsets.GenericViewSet):
         """리뷰 생성 - 약속(내용), 별점, 이미지 포함"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        params = dict(serializer.validated_data)
+
+        check_content = params.get("review_content")
+
+        if check_content:
+            moderate = openai.content_moderation(input_text=check_content)
+            print(f"moderate: {moderate}")
+
         
         try:
             with transaction.atomic():
+                if moderate[0]["flag"]:
+                    serializer.validated_data["review_content"] = "유해한 내용이 포함되어 숨김 처리되었습니다."
+                else:
+                    print("유해한 내용이 포함되지 않음!")
+                
                 review = serializer.save()
                 if not review.wiki_place_id:
                     raise ValueError("wiki_place가 세팅되지 않았습니다.")
 
                 if review.review_score < 0 or review.review_score > 5:
                     raise ValueError("wiki 리뷰 점수는 0보다는 크고, 5보다는 작아야 합니다.")
-
+                
                 # 통계 갱신
                 review.wiki_place.update_review_stats()
 

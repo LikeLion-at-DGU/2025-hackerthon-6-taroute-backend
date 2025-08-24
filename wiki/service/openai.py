@@ -93,6 +93,7 @@ logger = logging.getLogger(__name__)
     
 
 BASE = "https://api.openai.com/v1/chat/completions"
+CONTENT = "https://api.openai.com/v1/moderations"
 
 def _headers():
     return {
@@ -280,3 +281,48 @@ def create_crawled_reviews_summary(place_name, google_reviews=None, blog_reviews
         raise requests.HTTPError(f"OpenAI API 호출 실패: {e.response.status_code} - {error_detail}") from e
     except Exception as e:
         raise Exception(f"크롤링 리뷰 요약 생성 중 오류: {str(e)}") from e
+
+############################################################################################################################
+# 위키 리뷰 내용 => 유해 여부 판정
+def content_moderation(input_text:str, lang: str = "ko", model: str = "omni-moderation-latest"):
+    # 언어별 시스템 프롬프트 설정
+    if lang == "en":
+        system_prompt = (
+            "You are a profanity sanitizer for English user reviews."
+            "Keep the original meaning and tone, but replace only profanities with ** or neutral wording." 
+            "Do not add or remove information. Output English only"
+        )
+    else:  # 한국어 (기본값)
+        system_prompt = (
+            "한국 사용자 리뷰의 욕설을 걸러내는 도구입니다."
+            "원래의 의미와 어조는 유지하되, 욕설만 ** 또는 중립적인 표현으로 바꿔주세요."
+            "정보를 추가하거나 삭제하지 마세요. 한국어만 출력하세요."
+
+            "요구사항:"
+            "- 비속어/욕설/모멸적 표현만 `**`로 마스킹하거나 완곡어로 대체"
+            "- 문장 구조와 정보는 유지"
+            "- 링크/이메일/전화번호는 그대로 둠"
+            "- 결과만 출력"
+        )
+    
+    body = {
+        "model": model,
+        "input": system_prompt
+    }
+
+    r = requests.post(CONTENT, headers=_headers(), json=body, timeout=(5,20))
+    try:
+        r.raise_for_status()
+    except requests.HTTPError as e:
+        detail = getattr(e.response, "text", "") or str(e)
+        raise requests.HTTPError(f"OpenAI {e.response.status_code} Error: {detail}") from e
+
+    data = r.json()
+    flag = ((data.get("results") or [])[0].get("flagged") or {})
+
+    moderate = []
+    moderate.append({
+        "data": data,
+        "flag": flag
+    })
+    return moderate
