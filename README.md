@@ -6,7 +6,8 @@ Taroute Backend API
 
 
 # 아키텍처
-<img width="2210" height="1272" alt="architecture_diagram" src="https://github.com/user-attachments/assets/5a7a1019-6520-401d-ab20-61a2f8703f99" />
+<img width="2210" height="1098" alt="architecture_diagram" src="https://github.com/user-attachments/assets/0fcec3af-0140-43a7-84ce-d73e77aa4346" />
+
 
 
 
