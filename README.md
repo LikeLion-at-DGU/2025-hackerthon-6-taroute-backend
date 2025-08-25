@@ -24,7 +24,9 @@ pip install -r requirements.txt
 
 # 📚 API 문서
 전체 API는 Swagger/ReDoc에서 확인 가능. 주요 엔드포인트 요약:
+
 places 앱 (장소/경로)
+
 GET /api/places/recommend/: 주변 추천 장소
 GET /api/places/google_place/: 구글 장소 검색
 GET /api/places/save_place/: 장소 찜하기
