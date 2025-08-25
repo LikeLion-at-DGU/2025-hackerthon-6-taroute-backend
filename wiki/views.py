@@ -4,8 +4,6 @@ Wiki 앱 뷰 - 메인 검색 및 정보 안내
 
 from datetime import timezone
 from django.shortcuts import get_object_or_404
-# from django.db import transaction
-# from django.utils import timezone
 from django.db.models import Avg
 
 import requests
@@ -24,11 +22,6 @@ from .serializers import (
     PopularKeywordSerializer
 )
 from typing import List, Dict, Optional, Tuple
-# from .services import (
-#     # search_places_by_keyword,
-#     # parse_kakao_place_data,
-#     get_popular_search_keywords
-# )
 
 from .service import google, openai
 
@@ -59,28 +52,6 @@ class WikiViewSet(viewsets.GenericViewSet):
         try:
             # 구글 API 호출
             google_places = google.search_place(**search_data)
-                        
-            # # 검색 기록 저장 (세션 키가 있는 경우)
-            # if session_key:
-            #     try:
-            #         search_type = 'mixed'
-            #         if place_name and not location_name:
-            #             search_type = 'place_name'
-            #         elif location_name and not place_name:
-            #             search_type = 'location_name'
-                    
-            #         WikiSearchHistory.objects.create(
-            #             search_query=search_query,
-            #             search_type=search_type,
-            #             result_count=len(search_results),
-            #             session_key=session_key,
-            #             search_longitude=user_longitude,
-            #             search_latitude=user_latitude
-            #         )
-            #     except Exception as e:
-            #         logger.warning(f"검색 기록 저장 실패: {e}")
-        
-
             
         except Exception as e:
             logger.error(f"위키 검색 중 오류: {e}")
@@ -123,8 +94,6 @@ class WikiViewSet(viewsets.GenericViewSet):
         try:
             search_details = google.search_detail(place_id=place_id) 
             shop_name =search_details.get("place_name")  
-        
-            # ID에 해당하는 위키 모델의 별점에 접근
             # WikiPlace 조회
             wiki_place = None
             
@@ -276,70 +245,4 @@ class WikiViewSet(viewsets.GenericViewSet):
                 "reviews_content":reviews_data
             }, 
             status=200
-
-        # AI 요약 생성 (아직 없거나 오래된 경우)
-        # should_generate_ai_summary = (
-        #     not wiki_place.ai_summation or
-        #     not wiki_place.ai_summary_updated_at or
-        #     (timezone.now() - wiki_place.ai_summary_updated_at).days > 30
-        # )
-    
-        
         )
-    
-    # def get_popular_search_keywords(limit: int = 10) -> List[Dict]:
-    #     """인기 검색 키워드 조회
-        
-    #     Args:
-    #         limit: 반환할 키워드 개수
-        
-    #     Returns:
-    #         인기 검색어 리스트 [{"keyword": "키워드", "count": 횟수}, ...]
-    #     """
-    #     from django.db.models import Count
-    #     from .models import WikiSearchHistory
-        
-    #     # 최근 7일간의 검색 기록에서 인기 키워드 추출
-    #     from datetime import timedelta
-    #     recent_date = timezone.now() - timedelta(days=7)
-        
-    #     popular_keywords = (
-    #         WikiSearchHistory.objects
-    #         .filter(created_at__gte=recent_date)
-    #         .values('search_query')
-    #         .annotate(search_count=Count('search_query'))
-    #         .order_by('-search_count')[:limit]
-    #     )
-        
-    #     return [
-    #         {
-    #             "keyword": item['search_query'],
-    #             "count": item['search_count']
-    #         }
-    #         for item in popular_keywords
-    #     ]
-
-    # @extend_schema(
-    #     tags=["위키 기타"],
-    #     parameters=[
-    #         OpenApiParameter(name="limit", description="반환할 키워드 개수", required=False, type=int),
-    #     ],
-    #     responses={200: PopularKeywordSerializer(many=True)},
-    #     description="인기 검색어 목록 조회"
-    # )
-    # @action(detail=False, methods=["GET"])
-    # def popular_keywords(self, request):
-    #     """인기 검색어 목록 반환"""
-    #     limit = int(request.query_params.get('limit', 10))
-    #     limit = min(max(limit, 1), 50)  # 1~50 범위로 제한
-        
-    #     try:
-    #         keywords = get_popular_search_keywords(limit=limit)
-    #         serializer = PopularKeywordSerializer(keywords, many=True)
-    #         return Response(serializer.data, status=status.HTTP_200_OK)
-    #     except Exception as e:
-    #         logger.error(f"인기 검색어 조회 중 오류: {e}")
-    #         return Response(
-    #             {'detail': '인기 검색어 조회 중 오류가 발생했습니다.'},
-    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-    #         )

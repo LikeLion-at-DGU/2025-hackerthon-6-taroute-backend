@@ -1,7 +1,7 @@
 import networkx as nx
 from core.distance import calculate_distance
 from .kakao import look_category
-
+from rest_framework.exceptions import ValidationError
 
 def filter(day, data):
   result = []
@@ -48,8 +48,12 @@ def find_nearest_place(places, mylat, mylng):
 def build_distance_matrix(places, mylat=None, mylng=None):
     # 2차원 km 리스트로 반환
     n = len(places)
+
+    if n <= 1:
+        # raise EmptyRoute()
+        raise ValidationError(detail="경로를 생성할 장소 데이터가 부족합니다.")
+    
     G = nx.complete_graph(n)
-    # M = [[0]*n for _ in range(n)]
 
     # 노드 데이터
     for i, p in enumerate(places):
@@ -171,5 +175,3 @@ def route_info(places, path):
             "longitude": p["location"]["longitude"]
         })
     return data
-
-# breaktime 피해서 짜야함 (옵션)

@@ -21,12 +21,6 @@ class WikiSearchQuerySerializer(serializers.Serializer):
         help_text="검색할 장소명"
     )
     
-    # location_name = serializers.CharField(
-    #     required=False,
-    #     max_length=100,
-    #     help_text="검색할 지역명"
-    # )
-    
     # 사용자 현재 위치 (선택사항)
     longitude = serializers.FloatField(
         required=False,
@@ -53,27 +47,6 @@ class WikiSearchQuerySerializer(serializers.Serializer):
         required=False, 
         allow_null=True
     )
-    
-    # page = serializers.IntegerField(
-    #     default=1,
-    #     min_value=1,
-    #     max_value=45,
-    #     help_text="페이지 번호"
-    # )
-    
-    # size = serializers.IntegerField(
-    #     default=15,
-    #     min_value=1,
-    #     max_value=15,
-    #     help_text="한 페이지 결과 수"
-    # )
-    
-    # # 세션 키 (검색 기록 저장용)
-    # session_key = serializers.CharField(
-    #     required=False,
-    #     max_length=64,
-    #     help_text="사용자 세션 키"
-    # )
 
     def validate(self, data):
         """검색 키워드 유효성 검사
@@ -302,11 +275,6 @@ class WikiReportSerializer(serializers.ModelSerializer):
         choices=REPORT_REASONS,
         help_text="신고 사유"
     )
-    
-    # report_title = serializers.CharField(
-    #     max_length=50,
-    #     help_text="신고 제목"
-    # )
     
     report_content = serializers.CharField(
         max_length=500,
