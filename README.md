@@ -67,15 +67,21 @@ GET /api/taro/cart/: 장바구니 조회
 
 # 🛡️ 인증 & 보안
 세션 기반: Django Session 사용 (24시간 만료)
+
 CORS: 허용 도메인 제한 (localhost, taroute.com 등)
+
 CSRF: SameSite=None 설정 (크로스 사이트 지원)
 
 # 📊 데이터 모델
 places: PopularKeyward (인기 키워드), RouteSnapshot (경로 공유)
+
 wiki: WikiPlace (장소 정보), Review (리뷰), Report (신고)
+
 taro: TaroConversation (대화), TaroCard (카드), TaroCartItem (장바구니)
 
 # 📞 연락처
 개발팀: 2025 멋쟁이사자처럼 중앙해커톤 동국대 6팀
+
 이메일: ohsein37@gmail.com
+
 이슈 트래커: GitHub Issues
