@@ -3,24 +3,36 @@
 
 Taroute Backend API
 한 줄 소개: 타로 테마 기반 사용자 취향 분석을 통한 최적 장소 추천 및 경로 안내 서비스
+
+
 # 아키텍처
 <img width="2210" height="1272" alt="architecture_diagram" src="https://github.com/user-attachments/assets/5a7a1019-6520-401d-ab20-61a2f8703f99" />
+
+
 
 # 요구사항
 Python 3.12+
 Git
 가상환경 (venv 추천)
 
+
+
 # 리포지토리 클론
 git clone https://github.com/your-org/taroute-backend.git
 cd taroute-backend
+
+
 
 # 가상환경 생성 및 활성화
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
+
+
 # 의존성 설치
 pip install -r requirements.txt
+
+
 
 # 📚 API 문서
 전체 API는 Swagger/ReDoc에서 확인 가능. 주요 엔드포인트 요약:
@@ -65,6 +77,8 @@ GET /api/taro/cart/: 장바구니 조회
 
 상세 스펙은 Swagger 문서 참조.
 
+
+
 # 🛡️ 인증 & 보안
 세션 기반: Django Session 사용 (24시간 만료)
 
@@ -72,12 +86,16 @@ CORS: 허용 도메인 제한 (localhost, taroute.com 등)
 
 CSRF: SameSite=None 설정 (크로스 사이트 지원)
 
+
+
 # 📊 데이터 모델
 places: PopularKeyward (인기 키워드), RouteSnapshot (경로 공유)
 
 wiki: WikiPlace (장소 정보), Review (리뷰), Report (신고)
 
 taro: TaroConversation (대화), TaroCard (카드), TaroCartItem (장바구니)
+
+
 
 # 📞 연락처
 개발팀: 2025 멋쟁이사자처럼 중앙해커톤 동국대 6팀
