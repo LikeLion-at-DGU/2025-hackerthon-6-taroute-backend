@@ -28,23 +28,41 @@ pip install -r requirements.txt
 places 앱 (장소/경로)
 
 GET /api/places/recommend/: 주변 추천 장소
+
 GET /api/places/google_place/: 구글 장소 검색
+
 GET /api/places/save_place/: 장소 찜하기
+
 GET /api/places/category_search/: 카테고리별 검색
+
 POST /api/routes/path/: 경로 안내 (자동차/대중교통/도보)
+
 GET /api/routes/ai_routes/: AI 최적 경로 추천
+
 POST /api/routes/snapshots/: 공유 링크 생성
+
 wiki 앱 (위키/리뷰)
+
 GET /api/wiki/search/: 위키 검색
+
 GET /api/wiki/detail/: 장소 세부 정보 (AI 요약)
+
 GET /api/reviews/by_place/: 후기 조회
+
 POST /api/reviews/: 후기 작성
+
 POST /api/reports/: 후기 신고
+
 taro 앱 (타로 AI)
+
 POST /api/taro/chat/: 타루 AI 대화
+
 POST /api/taro/card_select/: 카드 추천
+
 POST /api/taro/pick/: 카드 선택 (장바구니)
+
 GET /api/taro/cart/: 장바구니 조회
+
 상세 스펙은 Swagger 문서 참조.
 
 # 🛡️ 인증 & 보안
