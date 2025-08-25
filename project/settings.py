@@ -11,7 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import os
+import os, environ
+
+env = environ.Env()
+environ.Env.read_env()
 
 # .env 파일 읽기
 from dotenv import load_dotenv
@@ -19,6 +22,11 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY")
+TMAP_API_KEY = os.getenv("TMAP_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# 추가 API 키들은 제거됨 (구글맵 리뷰만 사용)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,7 +41,7 @@ SECRET_KEY = 'django-insecure-lsit9-abu#q2+_(&s)&cyff$qcve$6uu2z6zb5vwhq&)qmvp(q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['sein0327.shop', 'www.sein0327.shop', 'localhost', '127.0.0.1', '15.164.26.158']
+ALLOWED_HOSTS = ['api.taroute.com', 'www.taroute.com','api.sein0327.shop','sein0327.shop', 'www.sein0327.shop', 'localhost', '127.0.0.1', '15.164.26.158']
 
 
 # Application definition
@@ -46,9 +54,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'places',
+    'wiki',
     'rest_framework',
     'drf_spectacular',
     'drf_spectacular_sidecar',
+    'corsheaders',
 ]
 
 REST_FRAMEWORK = {
@@ -63,6 +73,10 @@ SPECTACULAR_SETTINGS = {
   'COMPONENT_SPLIT_REQUEST': True, # 웹에서 파일 업로드 기능
   'SWAGGER_UI_DIST': 'SIDECAR', # 정적파일 경로
   'REDOC_DIST': 'SIDECAR',
+  "SWAGGER_UI_SETTINGS": {
+        "operationsSorter": "alpha",  # API operation을 이름순 정렬
+        "tagsSorter": "alpha",        # 태그를 이름순 정렬
+    },
 
   'CONTACT': {
     'name': 'Sein Oh',
@@ -76,6 +90,7 @@ SPECTACULAR_SETTINGS = {
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    "corsheaders.middleware.CorsMiddleware", #CORS 추가
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -157,9 +172,35 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOWED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = [ #API 호출할 수 있는 출처 목록
   "http://127.0.0.1:8000",
   "https://127.0.0.1:8000",
-
+  "http://localhost:5173",
   "https://sein0327.shop",
+  "https://api.sein0327.shop",
+  "https://taroute.netlify.app",
+  "https://api.taroute.com",
+  "https://www.taroute.com",
 ]
+
+CSRF_TRUSTED_ORIGINS = [ #CSRF 토큰 검증 통과
+  "http://127.0.0.1:8000",
+  "https://127.0.0.1:8000",
+  "http://localhost:5173",
+  "https://sein0327.shop",
+  "https://api.sein0327.shop",
+  "https://taroute.netlify.app",
+  "https://api.taroute.com",
+  "https://www.taroute.com",
+]
+CORS_ALLOW_CREDENTIALS = True #HTTP 자격증명 추가
+CSRF_COOKIE_SECURE = True #운영서버에서 True로 킬 것, http 보안!
+SESSION_COOKIE_SECURE = True #위와 동일
+
+SESSION_COOKIE_AGE = 86400  # 초 단위: 24시간 = 86400초
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # 브라우저를 닫아도 세션 유지
+
+SESSION_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SAMESITE = 'None'
+
+FRONT_ORIGIN = env.str("FRONT_ORIGIN", "https://www.taroute.com").rstrip("/")

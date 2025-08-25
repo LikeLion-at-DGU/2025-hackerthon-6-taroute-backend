@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 ('latitude', models.FloatField()),
                 ('number', models.CharField(max_length=50)),
                 ('running_time', models.CharField(max_length=50)),
-                ('place_image', models.ImageField(blank=True, null=True, upload_to=places.models.image_upload_path)),
+                ('place_image', models.ImageField(blank=True, null=True, upload_to='places/')),
             ],
         ),
         migrations.CreateModel(
@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
                 ('review_content', models.TextField()),
                 ('review_score', models.DecimalField(decimal_places=1, max_digits=2)),
                 ('ai_review', models.TextField(null=True)),
-                ('review_image', models.ImageField(blank=True, null=True, upload_to=places.models.image_upload_path)),
+                ('review_image', models.ImageField(blank=True, null=True, upload_to='places/')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('place', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='places.place')),
