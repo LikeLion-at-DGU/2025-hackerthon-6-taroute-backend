@@ -13,8 +13,6 @@ from django.db.models import F
 from .models import RouteSnapshot
 from .serializers import RouteSnapshotCreateSerializer, RouteSnapshotSerializer
 
-
-
 from .models import PopularKeyward, Place
 
 from .serializers import *
@@ -52,16 +50,6 @@ class PlaceViewSet(viewsets.ViewSet):
         data = kakao.recommend_place(**kakao_params)
     except requests.RequestException as e:
         return Response({"detail": f"카카오 API 호출 실패: {e}"}, status=502)
-    
-    # if params.get("many_review") == True:
-    #     try:
-    #         data = kakao.many_review_sort(data)
-    #     except requests.RequestException as e:
-    #         # 구글 실패하더라도 카카오 결과는 반환
-    #         return Response(
-    #             {"detail": f"구글 리뷰 조회 실패: {e}", "data": data},
-    #             status=207,  # Multi-Status
-    #         )
         
     return Response({"data": data}, status=200) 
   

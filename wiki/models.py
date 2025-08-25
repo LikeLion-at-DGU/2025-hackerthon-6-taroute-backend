@@ -1,6 +1,5 @@
 from django.db import models
 from django.utils import timezone
-from places.models import Place  # 기존 Place 모델 재사용
 
 
 def default_json():
@@ -17,17 +16,8 @@ def wiki_image_upload_path(instance, filename):
 
 class WikiPlace(models.Model):
     """위키 장소 정보 모델
-    - 기존 Place 모델을 확장하여 위키 전용 추가 정보 저장
     - AI 요약, 기본 정보 등을 포함
     """
-
-    # 기존 Place 모델과 일대일 관계 설정
-    # place = models.OneToOneField(
-    #     Place,
-    #     on_delete=models.CASCADE,
-    #     primary_key=True,
-    #     #"기존 장소 모델과 연결"
-    # )
 
     # 위키 전용 추가 필드들
     shop_name = models.CharField(
@@ -36,13 +26,6 @@ class WikiPlace(models.Model):
         null=True,
         # "🔥상점명 (장소명과 다를 수 있음)"
     )
-
-    # shop_image = models.ImageField(
-    #     upload_to=wiki_image_upload_path,
-    #     blank=True,
-    #     null=True,
-    #     #"위키 전용 장소 대표 이미지"
-    # )
 
     # AI 요약 정보
     ai_summation = models.TextField(
@@ -222,14 +205,6 @@ class Review(models.Model):
     wiki_place = models.ForeignKey(
         "WikiPlace", on_delete=models.CASCADE, null=False, related_name="reviews"
     )
-    # place_id = models.CharField(max_length=100, null=True, blank=True)
-
-    # place = models.ForeignKey(
-    #     Place,
-    #     on_delete=models.CASCADE,
-    #     related_name='reviews',
-    #     #"리뷰가 작성된 장소"
-    # )
 
     review_content = models.TextField(
         # "리뷰 내용"

@@ -143,11 +143,6 @@ def search_place(text_query, x, y, radius, rankPreference=None, priceLevel=None)
             "review_count" : review_count,
             "click_num": click_num,
             "place_photos" : place_photos
-            # "types" : p.get("types"),
-            # "phone_number" : p.get("nationalPhoneNumber"),
-            # "rating" : p.get("rating"),
-            # "price_range_start" : p.get("priceRange", {}).get("startPrice", {}).get("units"),
-            # "price_range_end" : p.get("priceRange", {}).get("endPrice", {}).get("units"),
         })
 
     # rankPreference가 DISTANCE면 거리순 정렬 적용
@@ -192,7 +187,6 @@ def search_detail(place_id):
         "address" : p.get("formattedAddress"),
         "location" : p.get("location"),
         "running_time" : time,
-        # "running_time_raw" : running_time, 필요 시 프론트 제공
         "place_photos" : place_photos
     }
 

@@ -157,23 +157,3 @@ def look_category(q, x, y, radius, size=1):
     else:
         # 데이터가 없는 경우 기본값(음식점) 반환
         return "FD6"
-
-# def many_review_sort(place_list):
-#     review_sort = []
-#     for p in place_list:  # 각 장소 딕셔너리 순회
-#       try:
-#           res = google.search_place(
-#               text_query=p.get("place_name", ""),
-#               x = float(p["x"]),
-#               y = float(p["y"]),
-#               radius = 500
-#           )
-#           if isinstance(res, list) and len(res) > 0:
-#             count = res[0].get("review_count", 0)
-#       except requests.RequestException:
-#           count = 0
-#       review_sort.append({**p, "review_count": count}) # 구글 리뷰수를 리스트에 추가
-
-#       review_sort.sort(key=lambda v: v.get("review_count", 0), reverse=True) # 오름차순 정렬 후 반환
-
-#     return review_sort
